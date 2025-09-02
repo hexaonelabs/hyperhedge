@@ -133,7 +133,7 @@ export const HyperliquidConfigProvider: React.FC<HyperliquidConfigProviderProps>
   }, [isConnected, hasConfig, config, isLoading, isInitialized, loadConfig]);
 
   // Computed values
-  const isConfigured = Boolean(config && config.subAccountAddress && config.apiWalletPrivateKey);
+  const isConfigured = Boolean(config && config.apiWalletPrivateKey);
 
   const contextValue: HyperliquidConfigContextType = {
     config,
