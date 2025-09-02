@@ -38,14 +38,14 @@ const openHedgePosition = async (
 
   // User info perps
   const clearinghouseState = await infoClient.clearinghouseState({
-    user: walletAddress,
+    user: ops?.subAccountAddress || walletAddress,
   });
   const perpsUSDC = Number(clearinghouseState.withdrawable);
   console.log("Clearinghouse state:", clearinghouseState, perpsUSDC);
 
   // User info Spot
   const spotMarketState = await infoClient.spotClearinghouseState({
-    user: walletAddress,
+    user: ops?.subAccountAddress || walletAddress,
   });
   const spotUSDC = Number(
     spotMarketState.balances.find((b) => b.coin === "USDC")?.total || 0
