@@ -14,6 +14,7 @@ import {
 import { useWallet } from "../hooks/useWallet";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
 import { HyperliquidConfig } from "../types";
+import { SecureKeyManager } from "../utils/SecureKeyManager";
 
 interface HyperliquidConfigModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { isConnected, address } = useWallet();
+  const { isConnected, address, signStringMessage } = useWallet();
   const {
     config,
     isLoading,
@@ -43,7 +44,9 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
   const [formConfig, setFormConfig] = useState<HyperliquidConfig>(config);
 
   useEffect(() => {
-    setFormConfig(config);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { apiWalletPrivateKey, ...rest } = config;
+    setFormConfig({ ...rest });
   }, [config]);
 
   // Validate form
@@ -53,18 +56,33 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
           formConfig.subAccountAddress.startsWith("0x")) ||
         false
       : true;
+    const hasPrivateKey = (formConfig?.apiWalletPrivateKey?.length || 0) > 0;
     const isPrivateKeyValid =
       (formConfig?.apiWalletPrivateKey?.length || 0) === 64 ||
       (formConfig?.apiWalletPrivateKey?.startsWith("0x") &&
         formConfig?.apiWalletPrivateKey?.length === 66) ||
       false;
-
-    setIsValid(isAddressValid && isPrivateKeyValid);
-    console.log("Form validation:", { isAddressValid, isPrivateKeyValid });
+    if (hasPrivateKey) {
+      setIsValid(isAddressValid && isPrivateKeyValid);
+    } else {
+      setIsValid(isAddressValid);
+    }
   }, [formConfig]);
 
   const handleSave = async () => {
-    saveConfig(formConfig);
+    if (formConfig.apiWalletPrivateKey) {
+      const signature = await signStringMessage("HyperHedge-Config-Encrypt");
+      const encodedKey = await SecureKeyManager.encrypt(
+        formConfig.apiWalletPrivateKey,
+        signature
+      );
+      saveConfig({ ...formConfig, apiWalletPrivateKey: encodedKey });
+    } else {
+      saveConfig({
+        ...config,
+        ...formConfig,
+      });
+    }
   };
 
   const handleNext = () => {
@@ -90,14 +108,18 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
   };
 
   if (!isOpen) return null;
-
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         {/* Overlay */}
         <div
           className="fixed inset-0 transition-opacity bg-black bg-opacity-75 backdrop-blur-sm"
-          onClick={onClose}
+          onClick={() => {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { apiWalletPrivateKey, ...rest } = config;
+            setFormConfig(() => ({ ...rest }));
+            onClose();
+          }}
         />
 
         {/* Modal */}
@@ -130,7 +152,12 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                 </button>
               )}
               <button
-                onClick={onClose}
+                onClick={() => {
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  const { apiWalletPrivateKey, ...rest } = config;
+                  setFormConfig(() => ({ ...rest }));
+                  onClose();
+                }}
                 className="p-2 text-dark-400 hover:text-white hover:bg-dark-800 rounded-lg transition-colors"
               >
                 <X size={20} />
@@ -295,17 +322,48 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                     </h4>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-dark-200">
-                      API Wallet Private Key
-                    </label>
+                  {config.apiWalletPrivateKey &&
+                    (formConfig.apiWalletPrivateKey?.length ?? -1) === -1 && (
+                      // disabled input with clear btn
+                      <div className="relative">
+                        <input
+                          type="password"
+                          value="••••••••••••••••••••••••••••••••"
+                          disabled
+                          className="w-full px-4 py-3 bg-dark-800/50 border border-dark-700 rounded-xl text-dark-400 cursor-not-allowed pr-28"
+                          placeholder="Private key already configured"
+                        />
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-3">
+                          <div className="flex items-center space-x-1">
+                            <Check size={12} className="text-primary-400" />
+                            <span className="text-xs text-primary-400 font-medium">
+                              Configured
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormConfig({
+                                ...formConfig!,
+                                apiWalletPrivateKey: "",
+                              })
+                            }
+                            className="text-dark-400 hover:text-white transition-colors p-1 hover:bg-dark-700 rounded"
+                            title="Clear private key"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  {(formConfig.apiWalletPrivateKey?.length ?? -1) >= 0 && (
                     <div className="relative">
                       <input
                         type={showPrivateKey ? "text" : "password"}
-                        value={formConfig.apiWalletPrivateKey}
+                        value={formConfig?.apiWalletPrivateKey}
                         onChange={(e) =>
                           setFormConfig({
-                            ...formConfig,
+                            ...formConfig!,
                             apiWalletPrivateKey: e.target.value,
                           })
                         }
@@ -324,29 +382,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                         )}
                       </button>
                     </div>
-                    {formConfig.apiWalletPrivateKey && (
-                      <div className="flex items-center space-x-2 text-xs">
-                        {formConfig.apiWalletPrivateKey.length === 64 ||
-                        (formConfig.apiWalletPrivateKey.startsWith("0x") &&
-                          formConfig.apiWalletPrivateKey.length === 66) ? (
-                          <>
-                            <Check size={14} className="text-green-400" />
-                            <span className="text-green-400">
-                              Valid private key
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <AlertTriangle size={14} className="text-red-400" />
-                            <span className="text-red-400">
-                              Invalid private key (64 hex characters required)
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
+                  )}
                   <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                     <div className="flex items-start space-x-2">
                       <AlertTriangle
@@ -540,31 +576,68 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                       <label className="block text-sm font-medium text-dark-200">
                         API Wallet Private Key
                       </label>
-                      <div className="relative">
-                        <input
-                          type={showPrivateKey ? "text" : "password"}
-                          value={formConfig?.apiWalletPrivateKey}
-                          onChange={(e) =>
-                            setFormConfig({
-                              ...formConfig!,
-                              apiWalletPrivateKey: e.target.value,
-                            })
-                          }
-                          placeholder="Your private key..."
-                          className="w-full px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all pr-12"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPrivateKey(!showPrivateKey)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
-                        >
-                          {showPrivateKey ? (
-                            <EyeOff size={18} />
-                          ) : (
-                            <Eye size={18} />
-                          )}
-                        </button>
-                      </div>
+                      {config.apiWalletPrivateKey &&
+                        (formConfig.apiWalletPrivateKey?.length ?? -1) ===
+                          -1 && (
+                          // disabled input with clear btn
+                          <div className="relative">
+                            <input
+                              type="password"
+                              value="••••••••••••••••••••••••••••••••"
+                              disabled
+                              className="w-full px-4 py-3 bg-dark-800/50 border border-dark-700 rounded-xl text-dark-400 cursor-not-allowed pr-28"
+                              placeholder="Private key already configured"
+                            />
+                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-3">
+                              <div className="flex items-center space-x-1">
+                                <Check size={12} className="text-primary-400" />
+                                <span className="text-xs text-primary-400 font-medium">
+                                  Configured
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setFormConfig({
+                                    ...formConfig!,
+                                    apiWalletPrivateKey: "",
+                                  })
+                                }
+                                className="text-dark-400 hover:text-white transition-colors p-1 hover:bg-dark-700 rounded"
+                                title="Clear private key"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      {(formConfig.apiWalletPrivateKey?.length ?? -1) >= 0 && (
+                        <div className="relative">
+                          <input
+                            type={showPrivateKey ? "text" : "password"}
+                            value={formConfig?.apiWalletPrivateKey}
+                            onChange={(e) =>
+                              setFormConfig({
+                                ...formConfig!,
+                                apiWalletPrivateKey: e.target.value,
+                              })
+                            }
+                            placeholder="Your private key..."
+                            className="w-full px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all pr-12"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPrivateKey(!showPrivateKey)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
+                          >
+                            {showPrivateKey ? (
+                              <EyeOff size={18} />
+                            ) : (
+                              <Eye size={18} />
+                            )}
+                          </button>
+                        </div>
+                      )}
                       {formConfig?.apiWalletPrivateKey && (
                         <div className="flex items-center space-x-2 text-xs">
                           {formConfig.apiWalletPrivateKey.length === 64 ||
@@ -645,9 +718,8 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                               {address.slice(-4)}
                             </>
                           ) : (
-                            'Not set'
+                            "Not set"
                           )}
-
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
@@ -659,16 +731,29 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                               {formConfig.subAccountAddress.slice(-4)}
                             </>
                           ) : (
-                            'Not set'
+                            "Not set"
                           )}
-
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-dark-300">API Key:</span>
-                        <span className="text-green-400 text-sm">
-                          ✓ Configured
-                        </span>
+                        {formConfig?.apiWalletPrivateKey ? (
+                          formConfig.apiWalletPrivateKey.length === 64 ||
+                          (formConfig.apiWalletPrivateKey.startsWith("0x") &&
+                            formConfig.apiWalletPrivateKey.length === 66) ? (
+                            <span className="text-green-400 text-sm">
+                              ✓ Configured
+                            </span>
+                          ) : (
+                            <span className="text-red-400 text-sm">
+                              ✗ Invalid API Key
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-dark-400 text-sm">
+                            Not configured
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -692,16 +777,20 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                       disabled={
                         isLoading ||
                         (step === 2 &&
-                          (formConfig.subAccountAddress &&
-                            (formConfig.subAccountAddress.length !== 42 ||
-                            !formConfig.subAccountAddress.startsWith("0x")))) ||
+                          formConfig.subAccountAddress &&
+                          (formConfig.subAccountAddress.length !== 42 ||
+                            !formConfig.subAccountAddress.startsWith("0x"))) ||
                         (step === 3 &&
+                          formConfig?.apiWalletPrivateKey &&
                           (!formConfig?.apiWalletPrivateKey ||
                             (formConfig.apiWalletPrivateKey.length !== 64 &&
                               !(
-                                formConfig.apiWalletPrivateKey.startsWith("0x") &&
+                                formConfig.apiWalletPrivateKey.startsWith(
+                                  "0x"
+                                ) &&
                                 formConfig.apiWalletPrivateKey.length === 66
-                              ))))
+                              )))) ||
+                        false
                       }
                       className="btn-primary text-black disabled:opacity-50 disabled:cursor-not-allowed"
                     >

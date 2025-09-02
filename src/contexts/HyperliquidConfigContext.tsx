@@ -1,7 +1,18 @@
-import React, { createContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { useWallet } from '../hooks/useWallet';
-import { getHyperliquidConfig, hasHyperliquidConfig, setHyperliquidConfig as saveConfig } from '../utils/hyperliquidConfig';
-import { HyperliquidConfig } from '../types';
+import React, {
+  createContext,
+  useState,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from "react";
+import { useWallet } from "../hooks/useWallet";
+import {
+  clearHyperliquidConfig,
+  getHyperliquidConfig,
+  hasHyperliquidConfig,
+  setHyperliquidConfig as saveConfig,
+} from "../utils/hyperliquidConfig";
+import { HyperliquidConfig } from "../types";
 
 export interface HyperliquidConfigContextType {
   config: HyperliquidConfig;
@@ -15,7 +26,9 @@ export interface HyperliquidConfigContextType {
   refreshConfig: () => Promise<void>;
 }
 
-const HyperliquidConfigContext = createContext<HyperliquidConfigContextType | undefined>(undefined);
+const HyperliquidConfigContext = createContext<
+  HyperliquidConfigContextType | undefined
+>(undefined);
 
 interface HyperliquidConfigProviderProps {
   children: ReactNode;
@@ -25,8 +38,10 @@ const DEFAULT_CONFIG: HyperliquidConfig = {
   isTestnet: false,
 };
 
-export const HyperliquidConfigProvider: React.FC<HyperliquidConfigProviderProps> = ({ children }) => {
-  const { isConnected, signStringMessage } = useWallet();
+export const HyperliquidConfigProvider: React.FC<
+  HyperliquidConfigProviderProps
+> = ({ children }) => {
+  const { isConnected } = useWallet();
   const [config, setConfig] = useState<HyperliquidConfig>(DEFAULT_CONFIG);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,12 +57,12 @@ export const HyperliquidConfigProvider: React.FC<HyperliquidConfigProviderProps>
 
   // Load and decrypt config
   const loadConfig = useCallback(async (): Promise<void> => {
-    if (!isConnected || !signStringMessage) {
-      setError('Wallet not connected');
+    if (!isConnected) {
+      setError("Wallet not connected");
       return;
     }
 
-    console.log('Loading Hyperliquid config...');
+    console.log("Loading Hyperliquid config...");
 
     try {
       setIsLoading(true);
@@ -58,40 +73,42 @@ export const HyperliquidConfigProvider: React.FC<HyperliquidConfigProviderProps>
         return;
       }
 
-      const decryptedConfig = await getHyperliquidConfig(signStringMessage);
-      if (decryptedConfig) {
-        setConfig(decryptedConfig);
+      const storedConfig = await getHyperliquidConfig();
+      if (storedConfig) {
+        setConfig(storedConfig);
         setError(null);
       } else {
-        setError('Failed to decrypt configuration');
+        setError("Failed to decrypt configuration");
         setConfig(DEFAULT_CONFIG);
       }
     } catch (err) {
-      console.error('Error loading Hyperliquid config:', err);
-      setError('Failed to load configuration');
+      console.error("Error loading Hyperliquid config:", err);
+      setError("Failed to load configuration");
       setConfig(DEFAULT_CONFIG);
     } finally {
       setIsLoading(false);
     }
-  }, [isConnected, signStringMessage]);
+  }, [isConnected]);
 
   // Save and encrypt config
-  const saveConfigHandler = async (newConfig: HyperliquidConfig): Promise<void> => {
-    if (!isConnected || !signStringMessage) {
-      throw new Error('Wallet not connected');
+  const saveConfigHandler = async (
+    newConfig: HyperliquidConfig
+  ): Promise<void> => {
+    if (!isConnected) {
+      throw new Error("Wallet not connected");
     }
 
     try {
       setIsLoading(true);
       setError(null);
-
-      await saveConfig(signStringMessage, newConfig);
+      await saveConfig(newConfig);
       setConfig(newConfig);
       setHasConfig(true);
       setError(null);
     } catch (err) {
-      console.error('Error saving Hyperliquid config:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save configuration';
+      console.error("Error saving Hyperliquid config:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "Failed to save configuration";
       setError(errorMessage);
       throw err;
     } finally {
@@ -101,7 +118,7 @@ export const HyperliquidConfigProvider: React.FC<HyperliquidConfigProviderProps>
 
   // Clear config from memory and storage
   const clearConfig = () => {
-    localStorage.removeItem('hyperliquid-config');
+    clearHyperliquidConfig();
     setConfig(DEFAULT_CONFIG);
     setHasConfig(false);
     setError(null);
@@ -155,4 +172,3 @@ export const HyperliquidConfigProvider: React.FC<HyperliquidConfigProviderProps>
 };
 
 export { HyperliquidConfigContext };
-

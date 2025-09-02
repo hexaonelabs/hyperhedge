@@ -1,21 +1,10 @@
 import { HyperliquidConfig } from "../types";
-import { SecureKeyManager } from "./SecureKeyManager";
 
-export async function getHyperliquidConfig(
-  signStringMessage: (message: string) => Promise<string>
-): Promise<HyperliquidConfig | null> {
+export async function getHyperliquidConfig(): Promise<HyperliquidConfig | null> {
   try {
     const stored = localStorage.getItem("hyperliquid-config");
     if (!stored) return null;
- 
-    const signature = await signStringMessage("HyperHedge-Config-Encrypt");
-    const decryptedJSON = await SecureKeyManager.decrypt(stored, signature);
-
-    if (!decryptedJSON) {
-      console.error("Failed to decrypt configuration data");
-      return null;
-    }
-    const parsedConfig: HyperliquidConfig = JSON.parse(decryptedJSON);
+    const parsedConfig: HyperliquidConfig = JSON.parse(stored);
     return parsedConfig;
   } catch (error) {
     console.error("Error loading Hyperliquid configuration:", error);
@@ -24,12 +13,9 @@ export async function getHyperliquidConfig(
 }
 
 export async function setHyperliquidConfig(
-  signStringMessage: (message: string) => Promise<string>,
   config: HyperliquidConfig
 ): Promise<void> {
-  const signature = await signStringMessage("HyperHedge-Config-Encrypt");
-  const encryptedConfig = await SecureKeyManager.encrypt(JSON.stringify(config), signature);
-  localStorage.setItem("hyperliquid-config", encryptedConfig);
+  localStorage.setItem("hyperliquid-config", JSON.stringify(config));
 }
 
 /**

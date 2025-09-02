@@ -14,6 +14,7 @@ import { openHedgePosition } from "../services/hl-api.sevice";
 import { useWallet } from "../hooks/useWallet";
 import { useNotification } from "../hooks/useNotification";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
+import { SecureKeyManager } from "../utils/SecureKeyManager";
 
 interface HedgeFormProps {
   isOpen: boolean;
@@ -29,8 +30,9 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
   const [hedgeValue, setHedgeValue] = useState<string>("1000");
   const [leverage, setLeverage] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLiquidationAnalysisOpen, setIsLiquidationAnalysisOpen] = useState(false);
-  const { address, isConnected } = useWallet();
+  const [isLiquidationAnalysisOpen, setIsLiquidationAnalysisOpen] =
+    useState(false);
+  const { address, isConnected, signStringMessage } = useWallet();
   const { showLoading, showSuccess, showError } = useNotification();
   const { config } = useHyperliquidConfig();
 
@@ -76,6 +78,8 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
       showError("Configuration is not set");
       return;
     }
+    if (!config.apiWalletPrivateKey)
+      throw new Error("Missing API wallet private key");
 
     if (!isConnected) {
       showError("Wallet is not connected");
@@ -91,13 +95,24 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
         calculations,
       });
 
+      // decrypt privateKey
+      const signature = await signStringMessage("HyperHedge-Config-Encrypt");
+      const apiWalletPrivateKey = await SecureKeyManager.decrypt(
+        config.apiWalletPrivateKey,
+        signature
+      );
+      if (!apiWalletPrivateKey)
+        throw new Error("Failed to decrypt API wallet private key");
+
+      // request api
       const result = await openHedgePosition(
         address as `0x${string}`,
-        config.apiWalletPrivateKey as `0x${string}`,
+        apiWalletPrivateKey as `0x${string}`,
         {
           calculations,
           marketAsset: selectedMarket?.symbol || "",
-          subAccountAddress: config?.subAccountAddress as `0x${string}` || undefined,
+          subAccountAddress:
+            (config?.subAccountAddress as `0x${string}`) || undefined,
         },
         config.isTestnet || false
       );
@@ -430,10 +445,12 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                 </div>
               </div>
 
-<div className="border border-red-500/20 rounded-lg overflow-hidden">
+              <div className="border border-red-500/20 rounded-lg overflow-hidden">
                 <button
                   type="button"
-                  onClick={() => setIsLiquidationAnalysisOpen(!isLiquidationAnalysisOpen)}
+                  onClick={() =>
+                    setIsLiquidationAnalysisOpen(!isLiquidationAnalysisOpen)
+                  }
                   className="w-full flex items-center justify-between p-4 bg-red-500/10 hover:bg-red-500/15 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -448,7 +465,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                     <ChevronDown className="text-red-400" size={16} />
                   )}
                 </button>
-                
+
                 {isLiquidationAnalysisOpen && (
                   <div className="p-4 bg-red-500/5 border-t border-red-500/20">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -473,7 +490,11 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                         </div>
                         <div className="text-success-300 font-semibold text-lg">
                           $
-                          {((calculations.spotAmount / selectedMarket.markPrice) * calculations.liquidationPrice).toLocaleString(undefined, {
+                          {(
+                            (calculations.spotAmount /
+                              selectedMarket.markPrice) *
+                            calculations.liquidationPrice
+                          ).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}
@@ -492,32 +513,73 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                         </div>
                         <div className="text-success-300 font-semibold text-lg">
                           +$
-                          {(((calculations.spotAmount / selectedMarket.markPrice) * calculations.liquidationPrice) - calculations.spotAmount).toLocaleString(undefined, {
+                          {(
+                            (calculations.spotAmount /
+                              selectedMarket.markPrice) *
+                              calculations.liquidationPrice -
+                            calculations.spotAmount
+                          ).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}
                         </div>
                         <div className="text-xs text-success-300 mt-1">
-                          {(((calculations.liquidationPrice - selectedMarket.markPrice) / selectedMarket.markPrice) * 100).toFixed(1)}% gain
+                          {(
+                            ((calculations.liquidationPrice -
+                              selectedMarket.markPrice) /
+                              selectedMarket.markPrice) *
+                            100
+                          ).toFixed(1)}
+                          % gain
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-red-400 text-sm">
-                          Net Loss
-                        </div>
-                        <div className={`font-bold text-lg ${
-                          (calculations.shortMargin - (((calculations.spotAmount / selectedMarket.markPrice) * calculations.liquidationPrice) - calculations.spotAmount)) > 0 
-                            ? "text-red-400" 
-                            : "text-success-400"
-                        }`}>
-                          {(calculations.shortMargin - (((calculations.spotAmount / selectedMarket.markPrice) * calculations.liquidationPrice) - calculations.spotAmount)) > 0 ? "-" : "+"}$
-                          {Math.abs(calculations.shortMargin - (((calculations.spotAmount / selectedMarket.markPrice) * calculations.liquidationPrice) - calculations.spotAmount)).toLocaleString(undefined, {
+                        <div className="text-red-400 text-sm">Net Loss</div>
+                        <div
+                          className={`font-bold text-lg ${
+                            calculations.shortMargin -
+                              ((calculations.spotAmount /
+                                selectedMarket.markPrice) *
+                                calculations.liquidationPrice -
+                                calculations.spotAmount) >
+                            0
+                              ? "text-red-400"
+                              : "text-success-400"
+                          }`}
+                        >
+                          {calculations.shortMargin -
+                            ((calculations.spotAmount /
+                              selectedMarket.markPrice) *
+                              calculations.liquidationPrice -
+                              calculations.spotAmount) >
+                          0
+                            ? "-"
+                            : "+"}
+                          $
+                          {Math.abs(
+                            calculations.shortMargin -
+                              ((calculations.spotAmount /
+                                selectedMarket.markPrice) *
+                                calculations.liquidationPrice -
+                                calculations.spotAmount)
+                          ).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}
                         </div>
                         <div className="text-xs text-red-300 mt-1">
-                          {(Math.abs(calculations.shortMargin - (((calculations.spotAmount / selectedMarket.markPrice) * calculations.liquidationPrice) - calculations.spotAmount)) / calculations.hedgeValue * 100).toFixed(1)}% of hedge
+                          {(
+                            (Math.abs(
+                              calculations.shortMargin -
+                                ((calculations.spotAmount /
+                                  selectedMarket.markPrice) *
+                                  calculations.liquidationPrice -
+                                  calculations.spotAmount)
+                            ) /
+                              calculations.hedgeValue) *
+                            100
+                          ).toFixed(1)}
+                          % of hedge
                         </div>
                       </div>
                     </div>
@@ -531,15 +593,28 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                       {calculations.shortMargin.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
-                      })}) but your spot position gains $
-                      {(((calculations.spotAmount / selectedMarket.markPrice) * calculations.liquidationPrice) - calculations.spotAmount).toLocaleString(undefined, {
+                      })}
+                      ) but your spot position gains $
+                      {(
+                        (calculations.spotAmount / selectedMarket.markPrice) *
+                          calculations.liquidationPrice -
+                        calculations.spotAmount
+                      ).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
-                      })} from the price increase. This results in a net loss of $
-                      {Math.abs(calculations.shortMargin - (((calculations.spotAmount / selectedMarket.markPrice) * calculations.liquidationPrice) - calculations.spotAmount)).toLocaleString(undefined, {
+                      })}{" "}
+                      from the price increase. This results in a net loss of $
+                      {Math.abs(
+                        calculations.shortMargin -
+                          ((calculations.spotAmount /
+                            selectedMarket.markPrice) *
+                            calculations.liquidationPrice -
+                            calculations.spotAmount)
+                      ).toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
-                      })}.
+                      })}
+                      .
                     </div>
                   </div>
                 )}
