@@ -46,7 +46,11 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { apiWalletPrivateKey, ...rest } = config;
-    setFormConfig({ ...rest });
+    if (!apiWalletPrivateKey) {
+      setFormConfig({ ...rest, apiWalletPrivateKey: "" });
+    } else {
+      setFormConfig({ ...rest });
+    }
   }, [config]);
 
   // Validate form
