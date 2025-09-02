@@ -317,6 +317,41 @@ const fetchFundingRatesHistory = async (isTestNet: boolean): Promise<{
   return result;
 }
 
+const fetchAccountFundingRatesHistory = async (address: `0x${string}`, initialAmountUSD: number,isTestNet: boolean) => {
+  const infoClient = new hl.InfoClient({
+    transport: new hl.HttpTransport({
+      isTestnet: isTestNet ?? false,
+    }),
+  });
+
+  const startTime = Date.now() - 30 * 24 * 60 * 60 * 1000; // 30 days ago
+  const response = await infoClient.userFunding({
+    user: address,
+    startTime,
+  });
+  const data = response.filter((item) => item.delta.type === "funding")
+  // reduce to create cumulative data
+  .reduce((acc, item) => {
+    const lastFunding = acc.length > 0 ? acc[acc.length - 1].funding : 0;
+    acc.push({
+      time: item.time,
+      funding: lastFunding + Number(item.delta.usdc),
+    });
+    return acc;
+  }, [] as { time: number; funding: number }[]);
+  const totalDays = (Date.now() - (data[0]?.time || 0)) / (1000 * 60 * 60 * 24);
+  const totalGainByDayUSD = (data[data.length - 1]?.funding || 0) / (totalDays || 1);
+  const apyPercentage = (Math.pow(1 + (totalGainByDayUSD / initialAmountUSD), 365) - 1) * 100;
+
+  return {
+    data,
+    startTime,
+    apyPercentage,
+    totalDays,
+    initialAmountUSD,
+  }
+};
+
 const loadHedgePosition = async (
   address: `0x${string}`,
   isTestNet: boolean
@@ -366,6 +401,7 @@ export {
   fetchFundingRates,
   fetchFundingRatesHistory,
   loadHedgePosition,
+  fetchAccountFundingRatesHistory,
   // Exchange Endpoint
   openHedgePosition,
 };

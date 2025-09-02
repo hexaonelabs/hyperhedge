@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { TrendingUp, PieChart, BarChart3, Activity } from "lucide-react";
-import { loadHedgePosition } from "../services/hl-api.sevice";
+import { fetchAccountFundingRatesHistory, loadHedgePosition } from "../services/hl-api.sevice";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
 import { useAccount } from "wagmi";
 import { HedgePositionSummary } from "../types";
+import FundingsChart from "../components/FundingsChart";
 
 interface CachedPositionsData {
   data: HedgePositionSummary[];
@@ -12,9 +13,21 @@ interface CachedPositionsData {
   isTestnet: boolean;
 }
 
+interface CachedFundingData {
+  data: Array<{ time: number; funding: number }>;
+  totalDays: number;
+  apyPercentage: number;
+  initialAmountUSD: number;
+  timestamp: number;
+  address: string;
+  isTestnet: boolean;
+}
+
 // Cache configuration
 const CACHE_KEY = "positions_cache";
+const FUNDING_CACHE_KEY = "funding_cache";
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+const FUNDING_CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 
 // Cache utility functions
 const getCachedData = (address: string, isTestnet: boolean): HedgePositionSummary[] | null => {
@@ -61,10 +74,71 @@ const setCachedData = (data: HedgePositionSummary[], address: string, isTestnet:
   }
 };
 
+// Funding cache utility functions
+const getCachedFundingData = (address: string, isTestnet: boolean): CachedFundingData | null => {
+  try {
+    const cached = localStorage.getItem(FUNDING_CACHE_KEY);
+    if (!cached) return null;
+
+    const parsedCache: CachedFundingData = JSON.parse(cached);
+    const now = Date.now();
+
+    // Check if cache is still valid and for the same address/network
+    if (
+      now - parsedCache.timestamp < FUNDING_CACHE_DURATION &&
+      parsedCache.address === address &&
+      parsedCache.isTestnet === isTestnet
+    ) {
+      console.log("Using cached funding data");
+      return parsedCache;
+    } else {
+      // Cache expired or different config, remove it
+      localStorage.removeItem(FUNDING_CACHE_KEY);
+      console.log("Funding cache expired or config changed, removed from localStorage");
+      return null;
+    }
+  } catch (error) {
+    console.error("Error reading funding cache:", error);
+    localStorage.removeItem(FUNDING_CACHE_KEY);
+    return null;
+  }
+};
+
+const setCachedFundingData = (
+  data: Array<{ time: number; funding: number }>,
+  totalDays: number,
+  apyPercentage: number,
+  initialAmountUSD: number,
+  address: string,
+  isTestnet: boolean
+): void => {
+  try {
+    const cacheData: CachedFundingData = {
+      data,
+      totalDays,
+      apyPercentage,
+      initialAmountUSD,
+      timestamp: Date.now(),
+      address,
+      isTestnet,
+    };
+    localStorage.setItem(FUNDING_CACHE_KEY, JSON.stringify(cacheData));
+    console.log("Funding data cached successfully");
+  } catch (error) {
+    console.error("Error caching funding data:", error);
+  }
+};
+
 const PositionsPage: React.FC = () => {
   const { address } = useAccount();
   const [positions, setPositions] = useState<HedgePositionSummary[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fundingData, setFundingData] = useState<{
+    data: Array<{ time: number; funding: number }>;
+    totalDays: number;
+    apyPercentage: number;
+    initialAmountUSD: number;
+  } | null>(null);
   const { config } = useHyperliquidConfig();
   const addressToCheck = (config?.subAccountAddress || address) as `0x${string}`;
   
@@ -98,24 +172,62 @@ const PositionsPage: React.FC = () => {
       try {
         const isTestnet = config?.isTestnet ?? false;
         
-        // Try to get cached data first
-        const cachedData = getCachedData(addressToCheck, isTestnet);
+        // Try to get cached positions data first
+        const cachedPositions = getCachedData(addressToCheck, isTestnet);
+        // Try to get cached funding data
+        const cachedFunding = getCachedFundingData(addressToCheck, isTestnet);
 
-        if (cachedData) {
-          setPositions(cachedData);
-          setLoading(false);
+        if (cachedPositions) {
+          setPositions(cachedPositions);
         } else {
-          // Fetch fresh data from API
+          // Fetch fresh positions data from API
           console.log("Fetching fresh positions data from API for address:", addressToCheck);
           const fetchedPositions = await loadHedgePosition(addressToCheck, isTestnet);
           console.log("Fetched Positions:", fetchedPositions);
-          
-          // Cache the fresh data
+
+          // Cache the fresh positions data
           setCachedData(fetchedPositions, addressToCheck, isTestnet);
-          
           setPositions(fetchedPositions);
-          setLoading(false);
         }
+
+        if (cachedFunding) {
+          setFundingData({
+            data: cachedFunding.data,
+            totalDays: cachedFunding.totalDays,
+            apyPercentage: cachedFunding.apyPercentage,
+            initialAmountUSD: cachedFunding.initialAmountUSD,
+          });
+        } else {
+          // Fetch fresh funding data from API
+          console.log("Fetching fresh funding data from API for address:", addressToCheck);
+          const currentPositions = cachedPositions || await loadHedgePosition(addressToCheck, isTestnet);
+          const totalAmountUSD = currentPositions.reduce((sum, pos) => sum + (pos.perpValueUSD + pos.margin), 0);
+          
+          if (totalAmountUSD > 0) {
+            const fundings = await fetchAccountFundingRatesHistory(addressToCheck, totalAmountUSD, isTestnet);
+            console.log("Fetched Funding Rates:", fundings);
+
+            // Store funding data in state
+            setFundingData({
+              data: fundings.data,
+              totalDays: fundings.totalDays,
+              apyPercentage: fundings.apyPercentage,
+              initialAmountUSD: fundings.initialAmountUSD,
+            });
+
+            // Cache the fresh funding data
+            setCachedFundingData(
+              fundings.data,
+              fundings.totalDays,
+              fundings.apyPercentage,
+              fundings.initialAmountUSD,
+              addressToCheck,
+              isTestnet
+            );
+          }
+        }
+
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching positions:", error);
         setLoading(false);
@@ -237,6 +349,17 @@ const PositionsPage: React.FC = () => {
           <p className="text-2xl font-bold text-white">{stats.averageLeverage.toFixed(2)}x</p>
         </div>
       </div>
+      
+      {/* Funding Rates Chart */}
+      {fundingData && (
+        <FundingsChart
+          data={fundingData.data}
+          totalDays={fundingData.totalDays}
+          apyPercentage={fundingData.apyPercentage}
+          initialAmountUSD={fundingData.initialAmountUSD}
+          className="mb-6"
+        />
+      )}
       
       <div className="bg-dark-900 border border-dark-800 rounded-xl p-6">
         <h2 className="text-xl font-bold text-white mb-6">Position Details</h2>
