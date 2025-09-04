@@ -76,7 +76,7 @@ export const useHyperliquidProcessedData = () => {
     if (!portfolioMetrics) {
       return 0;
     }
-    return Number(portfolioMetrics[0][1].pnlHistory.at(-1)?.[1] || 0);
+    return Number(portfolioMetrics[3][1].pnlHistory.at(-1)?.[1] || 0);
   }, [portfolioMetrics]);
 
   const accountFundingHistory = useMemo(() => {
