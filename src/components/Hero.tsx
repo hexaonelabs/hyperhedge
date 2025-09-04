@@ -1,7 +1,55 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ArrowRight, Shield, TrendingUp, DollarSign, Zap } from "lucide-react";
+import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
+import { Link } from "react-router-dom";
 
 const Hero: React.FC = () => {
+  const {fundingHistory, fundingRates} = useHyperliquidProcessedData();
+  const stats = useMemo(() => {
+    const tokens = fundingHistory.map((item) => {
+      const minAPY = Math.min(...item.fundings.flatMap(f => f[1])) * 24 * 365 * 100;
+      const maxAPY = Math.max(...item.fundings.flatMap(f => f[1])) * 24 * 365 * 100;
+      const averageAPY = item.fundings.length > 0
+        ? item.fundings.reduce((acc, f) => acc + Number(f[1]), 0) / item.fundings.length * 24 * 365 * 100
+        : 0;
+      
+      return {
+        token: item.coin,
+        averageAPY,
+        minAPY,
+        maxAPY,
+      };
+    });
+    // select 3 better tokens
+    const topTokens = tokens.sort((a, b) => b.averageAPY - a.averageAPY).slice(0, 3);
+    const apy = (topTokens.reduce((acc, token) => acc + token.averageAPY, 0) / topTokens.length).toFixed(2);
+    const marketCount = fundingRates.length;
+    const total24hVolume = fundingRates.reduce((acc, rate) => acc + rate.volume24h, 0);
+    // console.log('Calculating stats from funding history:', fundingHistory, tokens, topTokens, apy);
+    return {
+      apy,
+      marketCount,
+      total24hVolume,
+    };
+  }, [fundingHistory, fundingRates]);
+
+  const formatNumber = (number: number|string) => {
+    // return value with `k` suffix if over 1000
+    // `M` suffix if over 1 million
+    // `B` suffix if over 1 billion
+    const num = Number(number);
+    if (num >= 1_000_000_000) {
+      return `$${(num / 1_000_000_000).toFixed(1)}B`;
+    }
+    if (num >= 1_000_000) {
+      return `$${(num / 1_000_000).toFixed(1)}M`;
+    }
+    if (num >= 1_000) {
+      return `$${(num / 1_000).toFixed(1)}k`;
+    }
+    return `$${num}`;
+  }
+
   return (
     <section className="relative bg-gradient-to-br from-dark-950 via-dark-900 to-dark-950 pt-20 pb-16 sm:pt-24 sm:pb-20 overflow-hidden">
       {/* Background decoration */}
@@ -18,7 +66,7 @@ const Hero: React.FC = () => {
           {/* Badge */}
           <div className="inline-flex items-center px-4 py-2 rounded-full bg-primary-900/30 border border-primary-700/30 text-primary-300 text-sm font-medium mb-8 animate-fade-in">
             <Shield size={16} className="mr-2" />
-            Powered by Hyperliquid Protocol
+            Build over Hyperliquid Protocol
           </div>
 
           {/* Main heading */}
@@ -39,28 +87,33 @@ const Hero: React.FC = () => {
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mx-auto mb-12">
             <div className="bg-dark-900/50 backdrop-blur-sm border border-dark-700 rounded-lg p-4">
-              <div className="text-2xl font-bold text-success-400">12.4%</div>
-              <div className="text-sm text-dark-400">Avg. Annual Yield</div>
+              <div className="text-2xl font-bold text-success-400">{stats.apy}%</div>
+              <div className="text-sm text-dark-400">Best Avg. Annual Yield</div>
             </div>
             <div className="bg-dark-900/50 backdrop-blur-sm border border-dark-700 rounded-lg p-4">
-              <div className="text-2xl font-bold text-primary-400">$2.1M</div>
-              <div className="text-sm text-dark-400">Total Value Locked</div>
+              <div className="text-2xl font-bold text-primary-400">{stats.marketCount}</div>
+              <div className="text-sm text-dark-400">Markets available</div>
             </div>
             <div className="bg-dark-900/50 backdrop-blur-sm border border-dark-700 rounded-lg p-4">
-              <div className="text-2xl font-bold text-warning-400">847</div>
-              <div className="text-sm text-dark-400">Active Positions</div>
+              <div className="text-2xl font-bold text-warning-400">{formatNumber(stats.total24hVolume)}</div>
+              <div className="text-sm text-dark-400">Total 24h Volume</div>
             </div>
           </div>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <button className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-black text-lg font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200 shadow-lg hover:shadow-xl">
+            <Link 
+              to="/markets"
+              className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-black text-lg font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200 shadow-lg hover:shadow-xl">
               Start Hedging
               <ArrowRight size={20} className="ml-2" />
-            </button>
-            <button className="inline-flex items-center px-8 py-4 border-2 border-dark-600 text-lg font-medium rounded-lg text-dark-200 bg-dark-800/50 hover:bg-dark-700/50 hover:border-dark-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-500 transition-all duration-200">
+            </Link>
+            <Link 
+              to="/docs" 
+              className="inline-flex items-center px-8 py-4 border-2 border-dark-600 text-lg font-medium rounded-lg text-dark-200 bg-dark-800/50 hover:bg-dark-700/50 hover:border-dark-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-dark-500 transition-all duration-200"
+            >
               View Documentation
-            </button>
+            </Link>
           </div>
 
           {/* Features grid */}

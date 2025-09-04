@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { BarChart3, Filter, TrendingUp } from "lucide-react";
 import {
   LineChart,
@@ -80,30 +80,70 @@ interface APYStats {
 // };
 
 const AnalyticsPage: React.FC = () => {
-  const { fundingHistory, isLoading: loading } = useHyperliquidProcessedData()
+  const { fundingHistory, isLoading: loading } = useHyperliquidProcessedData();
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [apyStats, setApyStats] = useState<APYStats[]>([]);
 
+  
+  // Create a stable color mapping for each token
+  const tokenColorMap = useMemo(() => {
+    // Colors for different lines
+    const colors = [
+      "#8884d8",
+      "#82ca9d",
+      "#ffc658",
+      "#ff7300",
+      "#8dd1e1",
+      "#d084d0",
+      "#ffb347",
+      "#87ceeb",
+      "#dda0dd",
+      "#98fb98",
+    ];
+    const map = new Map<string, string>();
+    if (fundingHistory) {
+      // Sort tokens alphabetically to ensure consistent order
+      const sortedTokens = fundingHistory.map((item) => item.coin).sort();
 
-  // Colors for different lines
-  const colors = [
-    "#8884d8",
-    "#82ca9d",
-    "#ffc658",
-    "#ff7300",
-    "#8dd1e1",
-    "#d084d0",
-    "#ffb347",
-    "#87ceeb",
-    "#dda0dd",
-    "#98fb98",
-  ];
+      sortedTokens.forEach((token, index) => {
+        map.set(token, colors[index % colors.length]);
+      });
+    }
+    return map;
+  }, [fundingHistory]);
 
   useEffect(() => {
-    // On initial load, select the first 3 tokens by default
-    if (fundingHistory) {
-      setSelectedTokens(fundingHistory.slice(0, 3).map(item => item.coin));
+    // On initial load, select the 3 tokens with best average APY
+    if (fundingHistory && fundingHistory.length > 0) {
+      // Calculate APY for each token
+      const tokensWithAPY = fundingHistory.map((item) => {
+        // Calculate average APY for this token
+        const averageAPY =
+          item.fundings.length > 0
+            ? (item.fundings.reduce(
+                (acc, funding) => acc + Number(funding[1]),
+                0
+              ) /
+                item.fundings.length) *
+              24 *
+              365 *
+              100
+            : 0;
+
+        return {
+          coin: item.coin,
+          averageAPY,
+        };
+      });
+
+      // Sort by APY (descending) and take top 3
+      const topTokens = tokensWithAPY
+        .sort((a, b) => b.averageAPY - a.averageAPY)
+        .slice(0, 3)
+        .map((token) => token.coin);
+
+      setSelectedTokens(topTokens);
     }
   }, [fundingHistory]);
 
@@ -168,6 +208,11 @@ const AnalyticsPage: React.FC = () => {
     const stats = calculateAPYStats(processedData, selectedTokens);
     setApyStats(stats);
   }, [fundingHistory, selectedTokens]);
+
+  // Function to get color for a specific token
+  const getTokenColor = (token: string): string => {
+    return tokenColorMap.get(token) || '#8884d8';
+  };
 
   const calculateAPYStats = (
     data: ChartData[],
@@ -277,12 +322,12 @@ const AnalyticsPage: React.FC = () => {
                   ]}
                 />
                 <Legend />
-                {selectedTokens.map((coin, index) => (
+                {selectedTokens.map((coin) => (
                   <Line
                     key={coin}
                     type="monotone"
                     dataKey={coin}
-                    stroke={colors[index % colors.length]}
+                    stroke={getTokenColor(coin)}
                     strokeWidth={2}
                     dot={false}
                     connectNulls={false}
@@ -312,7 +357,7 @@ const AnalyticsPage: React.FC = () => {
           <h3 className="text-lg font-semibold text-white">Token Filters</h3>
         </div>
         <div className="flex flex-wrap gap-2">
-          {fundingHistory.map((item, index) => (
+          {fundingHistory.map((item) => (
             <button
               key={item.coin}
               onClick={() => handleTokenToggle(item.coin)}
@@ -324,7 +369,7 @@ const AnalyticsPage: React.FC = () => {
             >
               <span
                 className="inline-block w-3 h-3 rounded-full mr-2"
-                style={{ backgroundColor: colors[index % colors.length] }}
+                style={{ backgroundColor: getTokenColor(item.coin) }}
               ></span>
               {item.coin}
             </button>
@@ -359,12 +404,12 @@ const AnalyticsPage: React.FC = () => {
 
           {/* Individual Token Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {apyStats.map((stat, index) => (
+            {apyStats.map((stat) => (
               <div key={stat.coin} className="bg-dark-800 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span
                     className="inline-block w-3 h-3 rounded-full"
-                    style={{ backgroundColor: colors[index % colors.length] }}
+                    style={{ backgroundColor: getTokenColor(stat.coin) }}
                   ></span>
                   <h4 className="font-semibold text-white">{stat.coin}</h4>
                 </div>
@@ -389,7 +434,9 @@ const AnalyticsPage: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-dark-300">Data Points:</span>
-                    <span className="text-dark-200">{stat.dataPoints} ({stat.dataPoints/24} days)</span>
+                    <span className="text-dark-200">
+                      {stat.dataPoints} ({stat.dataPoints / 24} days)
+                    </span>
                   </div>
                 </div>
               </div>
@@ -397,7 +444,6 @@ const AnalyticsPage: React.FC = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };
