@@ -8,10 +8,9 @@ import {
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
-import { useFundingRates } from "../hooks/useFundingRates";
 import HedgeForm from "../components/HedgeForm";
 import { FundingRate } from "../types";
-import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
+import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
 
 type SortKey =
   | "symbol"
@@ -27,8 +26,7 @@ interface SortConfig {
 }
 
 const FundingRatesWidget: React.FC = () => {
-  const { config } = useHyperliquidConfig();
-  const { fundingRates, loading, error, refetch } = useFundingRates(config?.isTestnet || false);
+  const { fundingRates, isLoading, error, refreshMarketData: refetch } = useHyperliquidProcessedData();
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "fundingRate",
     direction: "desc",
@@ -175,11 +173,11 @@ const FundingRatesWidget: React.FC = () => {
             </h2>
             <button
               onClick={refetch}
-              disabled={loading}
+              disabled={isLoading}
               className="inline-flex items-center p-2 bg-dark-800 hover:bg-dark-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Refresh data"
             >
-              <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
+              <RefreshCw size={20} className={isLoading ? "animate-spin" : ""} />
             </button>
           </div>
           <p className="text-xl text-dark-300 max-w-2xl mx-auto">
@@ -215,7 +213,7 @@ const FundingRatesWidget: React.FC = () => {
         )}
 
         <div className="bg-dark-900/50 rounded-lg overflow-hidden">
-          {loading && fundingRates.length === 0 ? (
+          {isLoading && fundingRates.length === 0 ? (
             <div className="flex items-center justify-center py-16">
               <div className="flex flex-col items-center gap-4">
                 <RefreshCw
@@ -400,7 +398,7 @@ const FundingRatesWidget: React.FC = () => {
           <div className="flex items-center justify-center gap-2 mb-4">
             <div
               className={`w-2 h-2 rounded-full ${
-                loading
+                isLoading
                   ? "bg-yellow-400 animate-pulse"
                   : error
                   ? "bg-red-400"
@@ -408,7 +406,7 @@ const FundingRatesWidget: React.FC = () => {
               }`}
             ></div>
             <p className="text-sm text-dark-400">
-              {loading
+              {isLoading
                 ? "Updating..."
                 : error
                 ? "Connection error"

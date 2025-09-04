@@ -10,11 +10,12 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { FundingRate, HedgeCalculation } from "../types";
-import { openHedgePosition } from "../services/hl-api.sevice";
+import { openHedgePosition } from "../services/hl-exchange.service";
 import { useWallet } from "../hooks/useWallet";
 import { useNotification } from "../hooks/useNotification";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
 import { SecureKeyManager } from "../utils/SecureKeyManager";
+import { useHyperliquidData } from "../hooks/useHyperliquidData";
 
 interface HedgeFormProps {
   isOpen: boolean;
@@ -32,9 +33,16 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLiquidationAnalysisOpen, setIsLiquidationAnalysisOpen] =
     useState(false);
-  const { address, isConnected, signStringMessage } = useWallet();
+  const { isConnected, signStringMessage } = useWallet();
   const { showLoading, showSuccess, showError } = useNotification();
   const { config } = useHyperliquidConfig();
+  const {
+    allMids,
+    clearinghouseState,
+    metaAndAssetCtxs,
+    spotClearinghouseState,
+    spotMetaAndAssetCtxs,
+  } = useHyperliquidData();
 
   const calculations = useMemo((): HedgeCalculation => {
     const hedgeAmount = parseFloat(hedgeValue) || 0;
@@ -105,16 +113,30 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
         throw new Error("Failed to decrypt API wallet private key");
 
       // request api
+      if (
+        !allMids ||
+        !clearinghouseState ||
+        !metaAndAssetCtxs ||
+        !spotClearinghouseState ||
+        !spotMetaAndAssetCtxs
+      )
+        throw new Error("No market data available");
       const result = await openHedgePosition(
-        address as `0x${string}`,
         apiWalletPrivateKey as `0x${string}`,
         {
           calculations,
           marketAsset: selectedMarket?.symbol || "",
           subAccountAddress:
             (config?.subAccountAddress as `0x${string}`) || undefined,
+          isTestnet: config.isTestnet || false,
         },
-        config.isTestnet || false
+        {
+          allMids,
+          clearinghouseState,
+          metaAndAssetCtxs,
+          spotClearinghouseState,
+          spotMetaAndAssetCtxs,
+        }
       );
 
       // Analyser la réponse pour déterminer le statut des ordres

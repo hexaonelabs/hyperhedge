@@ -127,14 +127,18 @@ export const HyperliquidConfigProvider: React.FC<
   // Refresh config (reload from storage)
   const refreshConfig = async (): Promise<void> => {
     setConfig(DEFAULT_CONFIG);
+    setIsLoading(true);
     await loadConfig();
+    setIsLoading(false);
   };
 
   // Auto-load config when wallet connects
   useEffect(() => {
+    setIsLoading(true);
     if (!isInitialized) {
       setIsInitialized(true);
       checkConfigExists();
+      setIsLoading(false);
       return;
     }
 
@@ -147,6 +151,7 @@ export const HyperliquidConfigProvider: React.FC<
       setConfig(DEFAULT_CONFIG);
       setError(null);
     }
+    setIsLoading(false);
   }, [isConnected, hasConfig, config, isLoading, isInitialized, loadConfig]);
 
   // Computed values

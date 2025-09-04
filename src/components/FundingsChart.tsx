@@ -8,7 +8,7 @@ import {
   Area,
   AreaChart,
 } from "recharts";
-import { TrendingUp, DollarSign } from "lucide-react";
+import { TrendingUp, DollarSign, BarChart3 } from "lucide-react";
 
 interface FundingDataPoint {
   time: number;
@@ -34,18 +34,22 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
   const chartData = data.map((point) => ({
     ...point,
     date: new Date(point.time).toLocaleString("en-US", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        }),
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }),
     fundingUSD: point.funding,
   }));
 
   // Custom tooltip
-  const CustomTooltip = ({ active, payload, label }: {
+  const CustomTooltip = ({
+    active,
+    payload,
+    label,
+  }: {
     active?: boolean;
     payload?: Array<{ value: number }>;
     label?: string;
@@ -69,20 +73,23 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
   const isPositive = totalFunding >= 0;
 
   return (
-    <div className={`bg-dark-900 border border-dark-800 rounded-xl p-6 ${className}`}>
+    <div
+      className={`bg-dark-900 border border-dark-800 rounded-xl p-6 ${className}`}
+    >
       {/* Header with stats */}
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <div className="p-2 bg-primary-500/10 rounded-lg">
-              <TrendingUp className="w-5 h-5 text-primary-400" />
+              <BarChart3 className="w-5 h-5 text-primary-400" />
             </div>
             <h3 className="text-lg font-semibold text-white">
               Funding Rates Progress
             </h3>
           </div>
           <p className="text-dark-400 text-sm">
-            Cumulative funding earnings over the last {Math.round(totalDays)} days
+            Cumulative funding earnings over the last {Math.round(totalDays)}{" "}
+            days
           </p>
         </div>
 
@@ -148,7 +155,13 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
               }}
             >
               <defs>
-                <linearGradient id="fundingGradient" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient
+                  id="fundingGradient"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
                   <stop
                     offset="5%"
                     stopColor={isPositive ? "#7bfcdd" : "#f87171"}
@@ -161,9 +174,9 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
                   />
                 </linearGradient>
               </defs>
-              <CartesianGrid 
-                strokeDasharray="3 3" 
-                stroke="#334155" 
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="#334155"
                 opacity={0.3}
               />
               <XAxis
@@ -216,8 +229,9 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
       {chartData.length > 0 && (
         <div className="mt-4 pt-4 border-t border-dark-800">
           <p className="text-dark-500 text-xs text-center">
-            Funding rates are collected every hour and represent earnings from holding positions.
-            Past performance does not guarantee future results.
+            Funding rates are collected every hour and represent earnings from
+            holding positions. Past performance does not guarantee future
+            results.
           </p>
         </div>
       )}

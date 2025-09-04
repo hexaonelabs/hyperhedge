@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { BarChart3, Filter, TrendingUp } from "lucide-react";
-import { fetchFundingRatesHistory } from "../services/hl-api.sevice";
 import {
   LineChart,
   Line,
@@ -11,12 +10,12 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
+import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
 
-interface FundingData {
-  coin: string;
-  fundings: number[][];
-}
+// interface FundingData {
+//   coin: string;
+//   fundings: number[][];
+// }
 
 interface ChartData {
   timestamp: number;
@@ -24,10 +23,10 @@ interface ChartData {
   [key: string]: number | string;
 }
 
-interface CachedFundingData {
-  data: FundingData[];
-  timestamp: number;
-}
+// interface CachedFundingData {
+//   data: FundingData[];
+//   timestamp: number;
+// }
 
 interface APYStats {
   coin: string;
@@ -37,56 +36,55 @@ interface APYStats {
   dataPoints: number;
 }
 
-// Cache configuration
-const CACHE_KEY = "funding_rates_cache";
-const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
+// // Cache configuration
+// const CACHE_KEY = "funding_rates_cache";
+// const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
 
-// Cache utility functions
-const getCachedData = (): FundingData[] | null => {
-  try {
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (!cached) return null;
+// // Cache utility functions
+// const getCachedData = (): FundingData[] | null => {
+//   try {
+//     const cached = localStorage.getItem(CACHE_KEY);
+//     if (!cached) return null;
 
-    const parsedCache: CachedFundingData = JSON.parse(cached);
-    const now = Date.now();
+//     const parsedCache: CachedFundingData = JSON.parse(cached);
+//     const now = Date.now();
 
-    // Check if cache is still valid (within 30 minutes)
-    if (now - parsedCache.timestamp < CACHE_DURATION) {
-      console.log("Using cached funding rates data");
-      return parsedCache.data;
-    } else {
-      // Cache expired, remove it
-      localStorage.removeItem(CACHE_KEY);
-      console.log("Cache expired, removed from localStorage");
-      return null;
-    }
-  } catch (error) {
-    console.error("Error reading cache:", error);
-    localStorage.removeItem(CACHE_KEY);
-    return null;
-  }
-};
+//     // Check if cache is still valid (within 30 minutes)
+//     if (now - parsedCache.timestamp < CACHE_DURATION) {
+//       console.log("Using cached funding rates data");
+//       return parsedCache.data;
+//     } else {
+//       // Cache expired, remove it
+//       localStorage.removeItem(CACHE_KEY);
+//       console.log("Cache expired, removed from localStorage");
+//       return null;
+//     }
+//   } catch (error) {
+//     console.error("Error reading cache:", error);
+//     localStorage.removeItem(CACHE_KEY);
+//     return null;
+//   }
+// };
 
-const setCachedData = (data: FundingData[]): void => {
-  try {
-    const cacheData: CachedFundingData = {
-      data,
-      timestamp: Date.now(),
-    };
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-    console.log("Funding rates data cached successfully");
-  } catch (error) {
-    console.error("Error caching data:", error);
-  }
-};
+// const setCachedData = (data: FundingData[]): void => {
+//   try {
+//     const cacheData: CachedFundingData = {
+//       data,
+//       timestamp: Date.now(),
+//     };
+//     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+//     console.log("Funding rates data cached successfully");
+//   } catch (error) {
+//     console.error("Error caching data:", error);
+//   }
+// };
 
 const AnalyticsPage: React.FC = () => {
-  const { config } = useHyperliquidConfig();
-  const [fundingRates, setFundingRates] = useState<FundingData[]>([]);
+  const { fundingHistory, isLoading: loading } = useHyperliquidProcessedData()
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [apyStats, setApyStats] = useState<APYStats[]>([]);
-  const [loading, setLoading] = useState(true);
+
 
   // Colors for different lines
   const colors = [
@@ -103,47 +101,15 @@ const AnalyticsPage: React.FC = () => {
   ];
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Try to get cached data first
-        const cachedData = getCachedData();
-
-        if (cachedData) {
-          setFundingRates(cachedData);
-
-          // Select first 5 tokens by default
-          const defaultTokens = cachedData.slice(0, 3).map((item) => item.coin);
-          setSelectedTokens(defaultTokens);
-
-          setLoading(false);
-        } else {
-          // Fetch fresh data from API
-          console.log("Fetching fresh funding rates data from API");
-          const data = await fetchFundingRatesHistory(config.isTestnet || false);
-
-          // Cache the fresh data
-          setCachedData(data);
-
-          setFundingRates(data);
-
-          // Select first 5 tokens by default
-          const defaultTokens = data.slice(0, 3).map((item) => item.coin);
-          setSelectedTokens(defaultTokens);
-
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("Error fetching funding rates:", error);
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
+    // On initial load, select the first 3 tokens by default
+    if (fundingHistory) {
+      setSelectedTokens(fundingHistory.slice(0, 3).map(item => item.coin));
+    }
+  }, [fundingHistory]);
 
   // Prepare data for chart
   useEffect(() => {
-    if (fundingRates.length === 0 || selectedTokens.length === 0) {
+    if (fundingHistory.length === 0 || selectedTokens.length === 0) {
       setChartData([]);
       setApyStats([]);
       return;
@@ -151,7 +117,7 @@ const AnalyticsPage: React.FC = () => {
 
     // Create a map of all unique timestamps
     const timestampSet = new Set<number>();
-    fundingRates
+    fundingHistory
       .filter((item) => selectedTokens.includes(item.coin))
       .forEach((item) => {
         item.fundings.forEach(([timestamp]) => {
@@ -179,7 +145,7 @@ const AnalyticsPage: React.FC = () => {
 
       // Add funding values for each selected token
       selectedTokens.forEach((coin) => {
-        const tokenData = fundingRates.find((item) => item.coin === coin);
+        const tokenData = fundingHistory.find((item) => item.coin === coin);
         if (tokenData) {
           const fundingEntry = tokenData.fundings.find(
             ([ts]) => ts === timestamp
@@ -201,7 +167,7 @@ const AnalyticsPage: React.FC = () => {
     // Calculate APY statistics
     const stats = calculateAPYStats(processedData, selectedTokens);
     setApyStats(stats);
-  }, [fundingRates, selectedTokens]);
+  }, [fundingHistory, selectedTokens]);
 
   const calculateAPYStats = (
     data: ChartData[],
@@ -346,7 +312,7 @@ const AnalyticsPage: React.FC = () => {
           <h3 className="text-lg font-semibold text-white">Token Filters</h3>
         </div>
         <div className="flex flex-wrap gap-2">
-          {fundingRates.map((item, index) => (
+          {fundingHistory.map((item, index) => (
             <button
               key={item.coin}
               onClick={() => handleTokenToggle(item.coin)}
