@@ -41,7 +41,7 @@ const Footer: React.FC = () => {
                   to="/markets"
                   className="text-dark-300 hover:text-primary-400 transition-colors"
                 >
-                  Market
+                  Markets
                 </Link>
               </li>
               <li>
@@ -49,7 +49,7 @@ const Footer: React.FC = () => {
                   to="/positions"
                   className="text-dark-300 hover:text-primary-400 transition-colors"
                 >
-                  Create Position
+                  Positions
                 </Link>
               </li>
               <li>
@@ -57,7 +57,7 @@ const Footer: React.FC = () => {
                   to="/analytics"
                   className="text-dark-300 hover:text-primary-400 transition-colors"
                 >
-                  Analytics
+                  Markets Analytics
                 </Link>
               </li>
             </ul>

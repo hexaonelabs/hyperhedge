@@ -11,6 +11,7 @@ import MarketsPage from "./pages/MarketsPage";
 import PositionsPage from "./pages/PositionsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import DocsPage from "./pages/DocsPage";
+import RiskManagementPage from "./pages/RiskManagementPage";
 import { useWallet } from "./hooks/useWallet";
 import { useHyperliquidConfig } from "./hooks/useHyperliquidConfig";
 
@@ -48,6 +49,7 @@ function App() {
           <Route path="/positions" element={<PositionsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/docs" element={<DocsPage />} />
+          <Route path="/risk-management" element={<RiskManagementPage />} />
         </Routes>
       </main>
 

@@ -1,13 +1,16 @@
 import React from "react";
 import { TrendingUp, PieChart, Activity, DollarSign } from "lucide-react";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
-import { useAccount } from "wagmi";
 import FundingsChart from "../components/FundingsChart";
 import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
 import PortfolioChart from "../components/PortfolioChat";
+import { useWallet } from "../hooks/useWallet";
 
 const PositionsPage: React.FC = () => {
-  const { address } = useAccount();
+  const {
+    address,
+    openConnectModal,
+  } = useWallet();
   const { accountFundingHistory, hedgePositions, isLoading: loading, totalAccountValueUSD, accountPnl, raw: { portfolioMetrics } } = useHyperliquidProcessedData();
   const { config } = useHyperliquidConfig();
   const addressToCheck = (config?.subAccountAddress || address) as `0x${string}`;
@@ -74,7 +77,7 @@ const PositionsPage: React.FC = () => {
                 Detailed analytics
               </div>
             </div>
-            <button className="w-full btn-primary font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
+            <button onClick={()=> openConnectModal()} className="w-full btn-primary font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
               Connect Wallet
             </button>
           </div>
