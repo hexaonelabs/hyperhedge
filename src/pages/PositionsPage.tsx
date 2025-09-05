@@ -15,7 +15,7 @@ import { useWallet } from "../hooks/useWallet";
 import {PositionsWidget} from "../components/PositionsWidget";
 import { useWatchMode } from "../hooks/useWatchMode";
 import WatchModeInput from "../components/WatchModeInput";
-import WatchModeIndicator from "../components/WatchModeIndicator";
+import AccountIndicator from "../components/AccountIndicator";
 
 const PositionsPage: React.FC = () => {
   const { address, openConnectModal } = useWallet();
@@ -239,18 +239,20 @@ const PositionsPage: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Watch mode indicator */}
-      <WatchModeIndicator />
-
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-4">
-          {isWatchMode ? "Portfolio Analysis" : "Your Positions"}
-        </h1>
-        <p className="text-dark-300">
-          {isWatchMode
-            ? "Detailed analysis of the selected portfolio."
-            : "Track and manage all your open positions across different markets."}
-        </p>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            {isWatchMode ? "Portfolio Analysis" : "Your Positions"}
+          </h1>
+          <p className="text-dark-300">
+            {isWatchMode
+              ? "Detailed analysis of the selected portfolio."
+              : "Track and manage all your open positions across different markets."}
+          </p>
+        </div>
+        
+        {/* Account indicator aligned with title */}
+        <AccountIndicator />
       </div>
 
       {/* Stats Grid */}
