@@ -45,20 +45,20 @@ const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <a
-                  href="#"
+                <Link
+                  to="/positions"
                   className="text-dark-300 hover:text-primary-400 transition-colors"
                 >
                   Create Position
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#"
+                <Link
+                  to="/analytics"
                   className="text-dark-300 hover:text-primary-400 transition-colors"
                 >
                   Analytics
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
@@ -70,32 +70,25 @@ const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-3">
               <li>
-                <a
-                  href="#"
+                <Link
+                  to="/docs"
                   className="text-dark-300 hover:text-primary-400 transition-colors"
                 >
                   Documentation
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#"
-                  className="text-dark-300 hover:text-primary-400 transition-colors"
-                >
-                  Tutorials
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
+                <Link
+                  to="/risk-management"
                   className="text-dark-300 hover:text-primary-400 transition-colors"
                 >
                   Risk Management
-                </a>
+                </Link>
               </li>
               <li>
                 <a
-                  href="#"
+                  href="https://hexaonelabs.com/"
+                  target="_blank" rel="noopener noreferrer"
                   className="text-dark-300 hover:text-primary-400 transition-colors"
                 >
                   Support
@@ -112,7 +105,11 @@ const Footer: React.FC = () => {
           </p>
           <div className="flex items-center text-dark-400 text-sm mt-4 sm:mt-0">
             <span className="mr-2">Powered by</span>
-            <span className="text-primary-400 font-medium">Hyperliquid</span>
+            <span className="text-primary-400 font-medium">
+              <a href="https://hexaonelabs.com/" target="_blank" rel="noopener noreferrer">
+                HexaOne Labs
+              </a>
+            </span>
           </div>
         </div>
       </div>
