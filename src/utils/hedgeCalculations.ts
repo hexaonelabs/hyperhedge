@@ -1,3 +1,5 @@
+import { HedgePositionSummary } from '../types';
+
 export interface HedgeCalculation {
   hedgeValue: number;
   leverage: number;
@@ -108,4 +110,66 @@ export const getCurrentPrice = (
   perpPosition: number
 ): number => {
   return Math.abs(perpPosition) > 0 ? Math.abs(perpValueUSD / perpPosition) : 0;
+};
+
+/**
+ * Calculate position adjustment needed to reach target allocation
+ */
+export interface PositionAdjustment {
+  symbol: string;
+  spotAdjustment: number; // Positive = acheter, négatif = vendre
+  perpAdjustment: number; // Positive = augmenter short, négatif = diminuer short
+  targetSpotBalance: number;
+  targetPerpPosition: number;
+  adjustmentType: 'increase' | 'decrease' | 'rebalance';
+}
+
+export const calculatePositionAdjustment = (
+  currentPosition: HedgePositionSummary,
+  targetAllocationPercent: number,
+  totalPortfolioValue: number,
+  currentPrice: number
+): PositionAdjustment => {
+  // Calculer la valeur actuelle de la position
+  const currentValue = calculatePositionValue(
+    currentPosition.spotBalance,
+    currentPosition.perpPosition,
+    currentPosition.perpValueUSD,
+    currentPosition.margin
+  );
+
+  // Calculer la valeur cible
+  const targetValue = (targetAllocationPercent / 100) * totalPortfolioValue;
+  
+  // Calculer la nouvelle répartition avec le même levier
+  const leverage = currentPosition.leverage;
+  const targetBreakdown = calculateHedgePositionFromAllocation(
+    targetAllocationPercent,
+    totalPortfolioValue,
+    currentPrice,
+    leverage
+  );
+
+  // Calculer les ajustements nécessaires
+  const spotAdjustment = targetBreakdown.spotBalance - currentPosition.spotBalance;
+  const perpAdjustment = targetBreakdown.perpPosition - currentPosition.perpPosition;
+
+  // Déterminer le type d'ajustement
+  let adjustmentType: 'increase' | 'decrease' | 'rebalance';
+  if (targetValue > currentValue * 1.05) {
+    adjustmentType = 'increase';
+  } else if (targetValue < currentValue * 0.95) {
+    adjustmentType = 'decrease';
+  } else {
+    adjustmentType = 'rebalance';
+  }
+
+  return {
+    symbol: currentPosition.symbol,
+    spotAdjustment,
+    perpAdjustment,
+    targetSpotBalance: targetBreakdown.spotBalance,
+    targetPerpPosition: targetBreakdown.perpPosition,
+    adjustmentType
+  };
 };

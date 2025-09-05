@@ -10,6 +10,13 @@ import HedgedPositionCard from "./HedgedPositionCard";
 import UnhedgedPositionCard from "./UnhedgedPositionCard";
 import USDCReservesCard from "./USDCReservesCard";
 import { HedgePositionSummary } from "../types";
+import { PositionAdjustment, calculatePositionAdjustment, getCurrentPrice } from "../utils/hedgeCalculations";
+import { updateHedgePosition } from "../services/hl-exchange.service";
+import { useWallet } from "../hooks/useWallet";
+import { useNotification } from "../hooks/useNotification";
+import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
+import { useHyperliquidData } from "../hooks/useHyperliquidData";
+import { SecureKeyManager } from "../utils/SecureKeyManager";
 import * as hl from "@nktkas/hyperliquid";
 
 // interface UnhedgedPosition {
@@ -44,6 +51,20 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [resetTrigger, setResetTrigger] = useState(0);
   const [isResetting, setIsResetting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Hooks nécessaires pour les transactions
+  const { isConnected, signStringMessage } = useWallet();
+  const { showLoading, showSuccess, showError } = useNotification();
+  const { config } = useHyperliquidConfig();
+  const {
+    allMids,
+    clearinghouseState: contextClearinghouseState,
+    metaAndAssetCtxs,
+    spotClearinghouseState: contextSpotClearinghouseState,
+    spotMetaAndAssetCtxs,
+    refreshUserData,
+  } = useHyperliquidData();
 
   // Notifier le parent quand hasUnsavedChanges change
   React.useEffect(() => {
@@ -89,7 +110,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
         valueUSD: Number(spot.total) * 1, // Vous pourriez avoir besoin de calculer le prix réel ici
         type: "spot" as const,
       }));
-      
+
     // Positions perp non hedgées
     const unhedgedPerp = perpPositions
       .filter((perp) => !hedgedSymbols.includes(perp.position.coin))
@@ -190,11 +211,156 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   // Mettre à jour la stratégie
   const handleUpdateStrategy = async () => {
     console.log("Updating strategy with changes:", allocationChanges);
-    // Ici vous implémenteriez les appels API réels pour mettre à jour les positions
-    // Pour l'instant, on remet juste à zéro les changements
-    setAllocationChanges({});
-    setHasUnsavedChanges(false);
-    // Vous pourriez afficher une notification de succès ici
+    
+    try {
+      setIsSubmitting(true);
+      showLoading();
+
+      if (!config) {
+        showError("Configuration is not set");
+        return;
+      }
+      if (!config.apiWalletPrivateKey) {
+        throw new Error("Missing API wallet private key");
+      }
+      if (!isConnected) {
+        showError("Wallet is not connected");
+        return;
+      }
+
+      // Calculer les ajustements nécessaires pour chaque position modifiée
+      const adjustments: PositionAdjustment[] = [];
+
+      // Traiter les positions hedgées modifiées
+      hedgedPositions.forEach((position) => {
+        const newAllocation = allocationChanges[position.symbol];
+        if (newAllocation !== undefined) {
+          const currentPrice = getCurrentPrice(position.perpValueUSD, position.perpPosition);
+          const adjustment = calculatePositionAdjustment(
+            position,
+            newAllocation,
+            totalAccountValueUSD,
+            currentPrice
+          );
+          adjustments.push(adjustment);
+        }
+      });
+
+      // Traiter les positions non hedgées modifiées (si applicable)
+      unhedgedPositions.forEach((position) => {
+        const newAllocation = allocationChanges[position.symbol];
+        if (newAllocation !== undefined) {
+          // Pour les positions non hedgées, il faudrait les convertir en positions hedgées
+          // ou simplement ajuster leur taille
+          // Cette logique dépend de votre stratégie produit
+          console.log(`Unhedged position adjustment needed for ${position.symbol}: ${newAllocation}%`);
+        }
+      });
+
+      if (adjustments.length === 0) {
+        showError("No adjustments needed");
+        return;
+      }
+
+      // Décrypter la clé privée
+      const signature = await signStringMessage("HyperHedge-Config-Encrypt");
+      const apiWalletPrivateKey = await SecureKeyManager.decrypt(
+        config.apiWalletPrivateKey,
+        signature
+      );
+      if (!apiWalletPrivateKey) {
+        throw new Error("Failed to decrypt API wallet private key");
+      }
+
+      // Vérifier que nous avons les données de marché
+      if (
+        !allMids ||
+        !contextClearinghouseState ||
+        !metaAndAssetCtxs ||
+        !contextSpotClearinghouseState ||
+        !spotMetaAndAssetCtxs
+      ) {
+        throw new Error("No market data available");
+      }
+
+      // Exécuter les ajustements
+      const result = await updateHedgePosition(
+        apiWalletPrivateKey as `0x${string}`,
+        {
+          adjustments,
+          subAccountAddress: (config?.subAccountAddress as `0x${string}`) || undefined,
+          isTestnet: config.isTestnet || false,
+        },
+        {
+          allMids,
+          clearinghouseState: contextClearinghouseState,
+          metaAndAssetCtxs,
+          spotClearinghouseState: contextSpotClearinghouseState,
+          spotMetaAndAssetCtxs,
+        }
+      );
+
+      // Analyser les résultats
+      const successfulAdjustments = result.results.filter(r => r.success);
+      const failedAdjustments = result.results.filter(r => !r.success);
+
+      if (successfulAdjustments.length > 0) {
+        // Préparer les données pour la notification de succès
+        const orders = successfulAdjustments.flatMap(adj => 
+          adj.orders.map(order => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const orderStatus = order.response.response.data?.statuses?.[0] as any;
+            return {
+              oid: orderStatus?.filled?.oid || orderStatus?.resting?.oid || "N/A",
+              filled: Object.keys(orderStatus || {}).includes("filled"),
+              type: order.type as "spot" | "perp",
+              symbol: adj.symbol,
+              action: order.action,
+              size: order.size
+            };
+          })
+        );
+
+        await refreshUserData().catch(() => {});
+        showSuccess(
+          orders,
+          `Portfolio rebalancing completed! ${successfulAdjustments.length}/${result.totalAdjustments} positions updated successfully.`
+        );
+
+        // Réinitialiser les changements pour les positions mises à jour avec succès
+        const newChanges = { ...allocationChanges };
+        successfulAdjustments.forEach(adj => {
+          delete newChanges[adj.symbol];
+        });
+        setAllocationChanges(newChanges);
+        setHasUnsavedChanges(Object.keys(newChanges).length > 0);
+      }
+
+      if (failedAdjustments.length > 0) {
+        const errorMessage = `Some position updates failed: ${failedAdjustments.map(f => f.symbol).join(', ')}`;
+        showError(errorMessage);
+      }
+
+    } catch (error: unknown) {
+      console.error("Error updating strategy:", error);
+
+      let errorMessage = "Failed to update portfolio strategy";
+      if (error instanceof Error) {
+        if (error.message?.includes("insufficient")) {
+          errorMessage = "Insufficient balance for rebalancing";
+        } else if (error.message?.includes("network")) {
+          errorMessage = "Network error. Please check your connection and try again";
+        } else if (error.message?.includes("signature")) {
+          errorMessage = "Transaction signature failed. Please try again";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      showError(errorMessage);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Annuler les changements
@@ -327,22 +493,36 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleCancelChanges}
-                  className="px-4 py-2 text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-500/50 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                  disabled={isSubmitting}
+                  className={`px-4 py-2 border border-orange-500/30 hover:border-orange-500/50 rounded-lg transition-colors duration-200 flex items-center gap-2 ${
+                    isSubmitting 
+                      ? "text-gray-400 border-gray-500/30 cursor-not-allowed"
+                      : "text-orange-400 hover:text-orange-300"
+                  }`}
                 >
                   <X className="w-4 h-4" />
                   Cancel
                 </button>
                 <button
                   onClick={handleUpdateStrategy}
-                  disabled={isOverAllocated}
+                  disabled={isOverAllocated || isSubmitting}
                   className={`px-4 py-2 font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 ${
-                    isOverAllocated
+                    isOverAllocated || isSubmitting
                       ? "bg-gray-600 text-gray-400 cursor-not-allowed"
                       : "bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
                   }`}
                 >
-                  <Save className="w-4 h-4" />
-                  Update Strategy
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Update Strategy
+                    </>
+                  )}
                 </button>
               </div>
             </div>

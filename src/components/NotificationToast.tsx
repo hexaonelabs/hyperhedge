@@ -4,8 +4,7 @@ import {
   XCircle,
   Clock,
   X,
-  TrendingUp,
-  TrendingDown,
+  CheckCircle2,
 } from "lucide-react";
 
 interface OrderStatus {
@@ -60,7 +59,7 @@ const NotificationToast: React.FC<NotificationToastProps> = ({
           bgClass: "from-success-600/20 to-green-600/20 border-success-500/30",
           iconClass: "text-success-400",
           title: "Hedge Position Created!",
-          description: "Your hedge strategy has been successfully executed",
+          description:  message || "Your hedge strategy has been successfully executed",
         };
       case "error":
         return {
@@ -142,19 +141,12 @@ const NotificationToast: React.FC<NotificationToastProps> = ({
                 className="flex items-center justify-between p-2 bg-dark-800/30 rounded-lg gap-2"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  {order.type === "spot" ? (
-                    <TrendingUp
+                    <CheckCircle2
                       className="text-success-400 flex-shrink-0"
                       size={14}
                     />
-                  ) : (
-                    <TrendingDown
-                      className="text-red-400 flex-shrink-0"
-                      size={14}
-                    />
-                  )}
                   <span className="text-xs text-white font-medium truncate">
-                    {order.type === "spot" ? "Spot Buy" : "Perp Short"}
+                    {order.type === "spot" ? "Spot" : "Perp"}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
