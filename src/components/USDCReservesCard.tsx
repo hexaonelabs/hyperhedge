@@ -4,12 +4,14 @@ import { DollarSign } from "lucide-react";
 interface USDCReservesCardProps {
   spotUSDC: number;
   perpUSDC: number;
+  totalPortfolioValue?: number;
   className?: string;
 }
 
 const USDCReservesCard: React.FC<USDCReservesCardProps> = ({
   spotUSDC,
   perpUSDC,
+  totalPortfolioValue,
   className = "",
 }) => {
   const totalUSDC = spotUSDC + perpUSDC;
@@ -45,6 +47,12 @@ const USDCReservesCard: React.FC<USDCReservesCardProps> = ({
         <div className="col-span-2">
           <p className="text-dark-400 text-sm mb-1">Total USDC</p>
           <p className="text-white font-bold text-lg">${totalUSDC.toFixed(2)}</p>
+        </div>
+        <div className="col-span-2">
+          <p className="text-dark-400 text-sm mb-1">Portfolio Allocation</p>
+          <p className="text-blue-400 font-bold text-lg">
+            {(totalPortfolioValue && totalPortfolioValue > 0) ? ((totalUSDC / totalPortfolioValue) * 100).toFixed(1) : 0}%
+          </p>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Shield } from "lucide-react";
+import { Shield, AlertCircle } from "lucide-react";
 import { HedgePositionSummary } from "../types";
 
 interface HedgedPositionCardProps {
@@ -7,6 +7,8 @@ interface HedgedPositionCardProps {
   totalPortfolioValue: number;
   onAllocationChange: (symbol: string, percentage: number) => void;
   currentAllocation?: number;
+  resetTrigger?: number;
+  totalAllocation?: number;
   className?: string;
 }
 
@@ -15,6 +17,8 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
   totalPortfolioValue,
   onAllocationChange,
   currentAllocation,
+  resetTrigger,
+  totalAllocation,
   className = "",
 }) => {
   // Calculate current position value in USD
@@ -30,6 +34,13 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
     }
   }, [currentAllocation]);
 
+  // Reset to initial allocation when resetTrigger changes
+  React.useEffect(() => {
+    if (resetTrigger !== undefined) {
+      setSliderValue(initialAllocation);
+    }
+  }, [resetTrigger, initialAllocation]);
+
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseInt(e.target.value);
     setSliderValue(newValue);
@@ -38,6 +49,7 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
 
   // Check if allocation has changed
   const hasChanged = Math.abs(sliderValue - initialAllocation) > 1;
+  const isOverAllocated = totalAllocation !== undefined && totalAllocation > 100;
 
   return (
     <div className={`bg-dark-800 border ${hasChanged ? 'border-orange-500/50 shadow-orange-500/20 shadow-lg' : 'border-dark-700'} rounded-xl p-6 transition-all duration-300 ${className}`}>
@@ -118,6 +130,14 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
           <span className="text-dark-400">Position Value</span>
           <span className="text-white font-medium">${positionValueUSD.toFixed(2)}</span>
         </div>
+        
+        {/* Over-allocation Warning */}
+        {isOverAllocated && (
+          <div className="flex items-center gap-2 text-xs text-red-400 mt-2">
+            <AlertCircle className="w-3 h-3" />
+            <span>Total allocation exceeds 100%</span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -9,6 +9,8 @@ interface UnhedgedPositionCardProps {
   totalPortfolioValue: number;
   onAllocationChange: (symbol: string, percentage: number) => void;
   currentAllocation?: number;
+  resetTrigger?: number;
+  totalAllocation?: number;
   className?: string;
   perpPosition?: number;
   leverage?: number;
@@ -23,6 +25,8 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
   totalPortfolioValue,
   onAllocationChange,
   currentAllocation,
+  resetTrigger,
+  totalAllocation,
   className = "",
   perpPosition,
   leverage,
@@ -38,6 +42,13 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
     }
   }, [currentAllocation]);
 
+  // Reset to initial allocation when resetTrigger changes
+  React.useEffect(() => {
+    if (resetTrigger !== undefined) {
+      setSliderValue(initialAllocation);
+    }
+  }, [resetTrigger, initialAllocation]);
+
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseInt(e.target.value);
     setSliderValue(newValue);
@@ -46,6 +57,7 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
 
   // Check if allocation has changed
   const hasChanged = Math.abs(sliderValue - initialAllocation) > 1;
+  const isOverAllocated = totalAllocation !== undefined && totalAllocation > 100;
 
   const getPositionType = () => {
     if (type === "spot") return { label: "SPOT", color: "text-blue-400", bgColor: "bg-blue-500/20" };
@@ -147,6 +159,14 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
           <span className="text-dark-400">Position Value</span>
           <span className="text-white font-medium">${valueUSD.toFixed(2)}</span>
         </div>
+        
+        {/* Over-allocation Warning */}
+        {isOverAllocated && (
+          <div className="flex items-center gap-2 text-xs text-red-400 mt-2">
+            <AlertTriangle className="w-3 h-3" />
+            <span>Total allocation exceeds 100%</span>
+          </div>
+        )}
       </div>
     </div>
   );
