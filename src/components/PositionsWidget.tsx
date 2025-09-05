@@ -232,7 +232,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                     ? "text-red-400"
                     : totalAllocation > 98.5
                     ? "text-yellow-400"
-                    : "text-green-400"
+                    : "text-primary-400"
                 }`}
               >
                 {totalAllocation.toFixed(1)}%

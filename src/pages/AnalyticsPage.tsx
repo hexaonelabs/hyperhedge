@@ -384,7 +384,7 @@ const AnalyticsPage: React.FC = () => {
       {selectedTokens.length > 0 && (
         <div className="bg-dark-900 border border-dark-800 rounded-xl p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
-            <TrendingUp className="w-5 h-5 text-green-400" />
+            <TrendingUp className="w-5 h-5 text-primary-400" />
             <h3 className="text-lg font-semibold text-white">
               APY Statistics (7 Days)
             </h3>
@@ -396,7 +396,7 @@ const AnalyticsPage: React.FC = () => {
               <p className="text-dark-300 text-sm mb-1">
                 Portfolio Average APY
               </p>
-              <p className="text-3xl font-bold text-green-400">
+              <p className="text-3xl font-bold text-primary-400">
                 {calculatePortfolioAPY().toFixed(2)}%
               </p>
             </div>
@@ -428,7 +428,7 @@ const AnalyticsPage: React.FC = () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-dark-300">Max:</span>
-                    <span className="text-green-400">
+                    <span className="text-primary-400">
                       {stat.maxAPY.toFixed(2)}%
                     </span>
                   </div>

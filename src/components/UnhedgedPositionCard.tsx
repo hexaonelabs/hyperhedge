@@ -65,7 +65,7 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
 
   const getPositionType = () => {
     if (type === "spot") return { label: "SPOT", color: "text-blue-400", bgColor: "bg-blue-500/20" };
-    if (perpPosition && perpPosition > 0) return { label: "LONG", color: "text-green-400", bgColor: "bg-green-500/20" };
+    if (perpPosition && perpPosition > 0) return { label: "LONG", color: "text-primary-400", bgColor: "bg-green-500/20" };
     if (perpPosition && perpPosition < 0) return { label: "SHORT", color: "text-red-400", bgColor: "bg-red-500/20" };
     return { label: "PERP", color: "text-yellow-400", bgColor: "bg-yellow-500/20" };
   };

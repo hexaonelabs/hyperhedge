@@ -82,7 +82,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({
           <div
             className={`flex items-center gap-2 px-3 py-1 rounded-lg ${
               isPositive
-                ? "bg-green-500/10 text-green-400"
+                ? "bg-green-500/10 text-primary-400"
                 : "bg-red-500/10 text-red-400"
             }`}
           >
@@ -117,7 +117,7 @@ const PortfolioChart: React.FC<PortfolioChartProps> = ({
             <p className="text-dark-400 text-sm mb-1">Change</p>
             <p
               className={`text-xl font-bold ${
-                isPositive ? "text-green-400" : "text-red-400"
+                isPositive ? "text-primary-400" : "text-red-400"
               }`}
             >
               {isPositive ? "+" : ""}${absoluteChange.toFixed(2)}

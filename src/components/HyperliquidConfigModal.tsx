@@ -299,8 +299,8 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                         {(formConfig.subAccountAddress?.length || 0) === 42 &&
                         formConfig.subAccountAddress.startsWith("0x") ? (
                           <>
-                            <Check size={14} className="text-green-400" />
-                            <span className="text-green-400">
+                            <Check size={14} className="text-primary-400" />
+                            <span className="text-primary-400">
                               Valid address
                             </span>
                           </>
@@ -541,8 +541,8 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                           {formConfig.subAccountAddress.length === 42 &&
                           formConfig.subAccountAddress.startsWith("0x") ? (
                             <>
-                              <Check size={14} className="text-green-400" />
-                              <span className="text-green-400">
+                              <Check size={14} className="text-primary-400" />
+                              <span className="text-primary-400">
                                 Valid address
                               </span>
                             </>
@@ -648,8 +648,8 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                           (formConfig.apiWalletPrivateKey.startsWith("0x") &&
                             formConfig.apiWalletPrivateKey.length === 66) ? (
                             <>
-                              <Check size={14} className="text-green-400" />
-                              <span className="text-green-400">
+                              <Check size={14} className="text-primary-400" />
+                              <span className="text-primary-400">
                                 Valid private key
                               </span>
                             </>
@@ -691,7 +691,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                 {step === 4 && (
                   <div className="space-y-4">
                     <div className="flex items-center space-x-3 mb-4">
-                      <Check className="w-6 h-6 text-green-400" />
+                      <Check className="w-6 h-6 text-primary-400" />
                       <h4 className="text-lg font-medium text-white">
                         Summary
                       </h4>
@@ -745,7 +745,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                           formConfig.apiWalletPrivateKey.length === 64 ||
                           (formConfig.apiWalletPrivateKey.startsWith("0x") &&
                             formConfig.apiWalletPrivateKey.length === 66) ? (
-                            <span className="text-green-400 text-sm">
+                            <span className="text-primary-400 text-sm">
                               ✓ Configured
                             </span>
                           ) : (

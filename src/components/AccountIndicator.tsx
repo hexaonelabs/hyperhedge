@@ -86,7 +86,7 @@ const AccountIndicator: React.FC = () => {
           bgColor: 'bg-green-500/5',
           borderColor: 'border-green-500/10',
           textColor: 'text-green-300',
-          accentColor: 'text-green-400',
+          accentColor: 'text-primary-400',
           buttonBg: 'bg-green-500/10 hover:bg-green-500/20',
           buttonText: 'text-green-300 hover:text-green-200',
         };

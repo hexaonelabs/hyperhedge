@@ -108,8 +108,8 @@ const RiskManagementPage: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-dark-800 rounded-lg p-4">
                     <div className="flex items-center space-x-2 mb-2">
-                      <TrendingUp className="w-4 h-4 text-green-400" />
-                      <h5 className="text-green-400 font-medium">Potential Rewards</h5>
+                      <TrendingUp className="w-4 h-4 text-primary-400" />
+                      <h5 className="text-primary-400 font-medium">Potential Rewards</h5>
                     </div>
                     <ul className="text-dark-300 text-sm space-y-1">
                       <li>• Consistent funding rate income</li>
@@ -183,7 +183,7 @@ const RiskManagementPage: React.FC = () => {
                     <h5 className="text-white font-medium mb-2">Scenario: Perpetual Position Liquidated</h5>
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center space-x-3">
-                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <CheckCircle className="w-4 h-4 text-primary-400" />
                         <span className="text-dark-300">Spot position remains intact</span>
                       </div>
                       <div className="flex items-center space-x-3">
@@ -203,7 +203,7 @@ const RiskManagementPage: React.FC = () => {
                 <h4 className="text-white font-semibold mb-3">Prevention Strategies</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-dark-800 rounded-lg p-4">
-                    <Target className="w-5 h-5 text-green-400 mb-2" />
+                    <Target className="w-5 h-5 text-primary-400 mb-2" />
                     <h5 className="text-white font-medium mb-2">Maintain Adequate Margin</h5>
                     <ul className="text-dark-300 text-sm space-y-1">
                       <li>• Keep margin ratio above 20%</li>
@@ -312,7 +312,7 @@ const RiskManagementPage: React.FC = () => {
                   
                   <div className="bg-dark-800 rounded-lg p-4">
                     <div className="flex items-center space-x-3 mb-2">
-                      <Timer className="w-5 h-5 text-green-400" />
+                      <Timer className="w-5 h-5 text-primary-400" />
                       <h5 className="text-white font-medium">Timing & Execution</h5>
                     </div>
                     <ul className="text-dark-300 text-sm space-y-1">
@@ -396,7 +396,7 @@ const RiskManagementPage: React.FC = () => {
                 <div className="space-y-3">
                   <div className="bg-dark-800 rounded-lg p-4">
                     <div className="flex items-center space-x-3 mb-2">
-                      <BarChart3 className="w-5 h-5 text-green-400" />
+                      <BarChart3 className="w-5 h-5 text-primary-400" />
                       <h5 className="text-white font-medium">Historical Analysis</h5>
                     </div>
                     <ul className="text-dark-300 text-sm space-y-1">
@@ -501,7 +501,7 @@ const RiskManagementPage: React.FC = () => {
                 <div className="space-y-3">
                   <div className="bg-dark-800 rounded-lg p-4">
                     <div className="flex items-center space-x-3 mb-2">
-                      <Target className="w-5 h-5 text-green-400" />
+                      <Target className="w-5 h-5 text-primary-400" />
                       <h5 className="text-white font-medium">Asset Selection</h5>
                     </div>
                     <ul className="text-dark-300 text-sm space-y-1">
@@ -538,19 +538,19 @@ const RiskManagementPage: React.FC = () => {
             <h3 className="text-white font-semibold mb-3">Daily Risk Monitoring</h3>
             <ul className="space-y-2 text-dark-300 text-sm">
               <li className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-green-400" />
+                <CheckCircle className="w-4 h-4 text-primary-400" />
                 <span>Review margin levels and liquidation prices</span>
               </li>
               <li className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-green-400" />
+                <CheckCircle className="w-4 h-4 text-primary-400" />
                 <span>Monitor funding rate trends and forecasts</span>
               </li>
               <li className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-green-400" />
+                <CheckCircle className="w-4 h-4 text-primary-400" />
                 <span>Check portfolio balance and hedge ratios</span>
               </li>
               <li className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-green-400" />
+                <CheckCircle className="w-4 h-4 text-primary-400" />
                 <span>Assess market volatility and liquidity conditions</span>
               </li>
             </ul>
@@ -560,19 +560,19 @@ const RiskManagementPage: React.FC = () => {
             <h3 className="text-white font-semibold mb-3">Portfolio Protection</h3>
             <ul className="space-y-2 text-dark-300 text-sm">
               <li className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-green-400" />
+                <CheckCircle className="w-4 h-4 text-primary-400" />
                 <span>Maintain 25%+ margin buffers</span>
               </li>
               <li className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-green-400" />
+                <CheckCircle className="w-4 h-4 text-primary-400" />
                 <span>Diversify across multiple assets and strategies</span>
               </li>
               <li className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-green-400" />
+                <CheckCircle className="w-4 h-4 text-primary-400" />
                 <span>Set stop-loss levels for maximum drawdown</span>
               </li>
               <li className="flex items-center space-x-2">
-                <CheckCircle className="w-4 h-4 text-green-400" />
+                <CheckCircle className="w-4 h-4 text-primary-400" />
                 <span>Keep emergency USDC reserves available</span>
               </li>
             </ul>

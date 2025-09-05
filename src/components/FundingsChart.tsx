@@ -143,7 +143,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
           </div>
           <p
             className={`text-xl font-bold ${
-              isPositive ? "text-green-400" : "text-red-400"
+              isPositive ? "text-primary-400" : "text-red-400"
             }`}
           >
             {isPositive ? "+" : ""}${totalFunding.toFixed(4)}
@@ -157,7 +157,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
           <p className="text-dark-400 text-sm mb-1">Estimated APY</p>
           <p
             className={`text-lg font-bold ${
-              apyPercentage >= 0 ? "text-green-400" : "text-red-400"
+              apyPercentage >= 0 ? "text-primary-400" : "text-red-400"
             }`}
           >
             {apyPercentage >= 0 ? "+" : ""}
@@ -169,7 +169,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
           <p className="text-dark-400 text-sm mb-1">Daily Average</p>
           <p
             className={`text-lg font-bold ${
-              totalFunding >= 0 ? "text-green-400" : "text-red-400"
+              totalFunding >= 0 ? "text-primary-400" : "text-red-400"
             }`}
           >
             ${((totalFunding || 0) / (totalDays || 1)).toFixed(4)}

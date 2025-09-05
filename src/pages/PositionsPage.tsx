@@ -288,7 +288,7 @@ const PositionsPage: React.FC = () => {
             <div className="p-2 bg-green-500/10 rounded-lg">
               <Activity className="w-6 h-6 text-orange-400" />
             </div>
-            <span className="text-green-400 text-sm">Avg</span>
+            <span className="text-primary-400 text-sm">Avg</span>
           </div>
           <h3 className="text-white font-semibold">Avg Leverage</h3>
           <p className="text-2xl font-bold text-white">
@@ -299,14 +299,14 @@ const PositionsPage: React.FC = () => {
         <div className="bg-dark-900 border border-dark-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-orange-500/10 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-400" />
+              <DollarSign className="w-6 h-6 text-primary-400" />
             </div>
             <span className="text-dark-400 text-sm">USD</span>
           </div>
           <h3 className="text-white font-semibold">Account PnL</h3>
           <p
             className={`text-2xl font-bold ${
-              stats.pnl < 0 ? "text-red-400" : "text-green-400"
+              stats.pnl < 0 ? "text-red-400" : "text-primary-400"
             }`}
           >
             ${stats.pnl.toFixed(2)}

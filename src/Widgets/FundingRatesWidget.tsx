@@ -402,7 +402,7 @@ const FundingRatesWidget: React.FC = () => {
                   ? "bg-yellow-400 animate-pulse"
                   : error
                   ? "bg-red-400"
-                  : "bg-green-400"
+                  : "bg-primary-400"
               }`}
             ></div>
             <p className="text-sm text-dark-400">

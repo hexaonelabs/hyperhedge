@@ -101,8 +101,8 @@ const WatchModeInput: React.FC<WatchModeInputProps> = ({ onClose }) => {
           )}
           
           {inputAddress && isValidEthereumAddress(inputAddress) && (
-            <p className="text-green-400 text-xs flex items-center">
-              <span className="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
+            <p className="text-primary-400 text-xs flex items-center">
+              <span className="w-2 h-2 bg-primary-400 rounded-full mr-2"></span>
               Valid address
             </p>
           )}
