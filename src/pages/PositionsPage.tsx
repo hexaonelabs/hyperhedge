@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
   TrendingUp,
   PieChart,
@@ -37,6 +37,7 @@ const PositionsPage: React.FC = () => {
     refreshUserData,
   } = useHyperliquidProcessedData();
   const { config } = useHyperliquidConfig();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // State pour gérer l'affichage du formulaire de watch mode
   const [showWatchModeInput, setShowWatchModeInput] = React.useState(false);
@@ -67,6 +68,53 @@ const PositionsPage: React.FC = () => {
   
   // En mode watch, utiliser l'adresse du watch mode, sinon utiliser l'adresse configurée ou connectée
   const addressToCheck = isWatchMode ? watchAddress : (config?.subAccountAddress || address);
+
+  // Mise à jour automatique des données de compte toutes les 30 secondes quand la page est visible
+  useEffect(() => {
+    // Ne démarrer la mise à jour automatique que si on a une adresse à surveiller
+    if (!addressToCheck) {
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Page devient invisible - arrêter la mise à jour automatique
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else {
+        // Page devient visible - démarrer la mise à jour automatique
+        if (!intervalRef.current) {
+          // Rafraîchir immédiatement
+          refreshUserData();
+          
+          // Puis programmer les mises à jour toutes les 30 secondes
+          intervalRef.current = setInterval(() => {
+            refreshUserData();
+          }, 30000); // 30 secondes
+        }
+      }
+    };
+
+    // Démarrer la mise à jour automatique si la page est visible au montage
+    if (!document.hidden) {
+      intervalRef.current = setInterval(() => {
+        refreshUserData();
+      }, 30000);
+    }
+
+    // Écouter les changements de visibilité
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Nettoyage à la destruction du composant
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [addressToCheck, refreshUserData]);
 
   const portfolioData = React.useMemo(() => {
     if (!portfolioMetrics?.[3]?.[1]) return [];
@@ -336,7 +384,7 @@ const PositionsPage: React.FC = () => {
   }
 
   // Loading state
-  if (loading) {
+  if (loading && hedgePositions.length === 0) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">

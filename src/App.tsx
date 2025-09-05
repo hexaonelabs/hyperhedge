@@ -27,8 +27,8 @@ function App() {
   } = useHyperliquidConfig();
 
   useEffect(() => {
-    console.log("Wallet status changed:", { address, isConnected });
     if (isConnected && !isLoading && hasConfig && !isConfigured) {
+      console.log("Load Config Wallet status changed:", { address, isConnected });
       // Fetch user data or perform actions when connected
       loadConfig();
     } else {
