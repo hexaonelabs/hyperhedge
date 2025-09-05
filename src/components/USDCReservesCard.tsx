@@ -57,16 +57,17 @@ const USDCReservesCard: React.FC<USDCReservesCardProps> = ({
       </div>
 
       {/* Allocation Breakdown */}
-      <div className="relative pt-4 border-t border-blue-500/20">
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-dark-400">Spot Allocation</span>
-            <span className="text-white">{totalUSDC > 0 ? ((spotUSDC / totalUSDC) * 100).toFixed(1) : 0}%</span>
+      <div className="relative pt-3 border-t border-blue-500/20">
+        <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center gap-4">
+            <span className="text-dark-400">
+              Spot: <span className="text-white font-medium">{totalUSDC > 0 ? ((spotUSDC / totalUSDC) * 100).toFixed(1) : 0}%</span>
+            </span>
+            <span className="text-dark-400">
+              Perp: <span className="text-white font-medium">{totalUSDC > 0 ? ((perpUSDC / totalUSDC) * 100).toFixed(1) : 0}%</span>
+            </span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-dark-400">Perp Allocation</span>
-            <span className="text-white">{totalUSDC > 0 ? ((perpUSDC / totalUSDC) * 100).toFixed(1) : 0}%</span>
-          </div>
+          <span className="text-dark-500 text-xs">Allocation</span>
         </div>
       </div>
     </div>
