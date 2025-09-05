@@ -35,6 +35,8 @@ const PositionsPage: React.FC = () => {
 
   // State pour gérer l'affichage du formulaire de watch mode
   const [showWatchModeInput, setShowWatchModeInput] = React.useState(false);
+  // State pour gérer les changements non sauvegardés
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
 
   // Fonction pour valider une adresse Ethereum
   const isValidEthereumAddress = (address: string): boolean => {
@@ -68,7 +70,13 @@ const PositionsPage: React.FC = () => {
   // Mise à jour automatique des données de compte toutes les 30 secondes quand la page est visible
   useEffect(() => {
     // Ne démarrer la mise à jour automatique que si on a une adresse à surveiller
-    if (!addressToCheck) {
+    // et qu'il n'y a pas de changements non sauvegardés
+    if (!addressToCheck || hasUnsavedChanges) {
+      // Si on a des changements non sauvegardés, arrêter le refresh automatique
+      if (hasUnsavedChanges && intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       return;
     }
 
@@ -81,7 +89,8 @@ const PositionsPage: React.FC = () => {
         }
       } else {
         // Page devient visible - démarrer la mise à jour automatique
-        if (!intervalRef.current) {
+        // seulement s'il n'y a pas de changements non sauvegardés
+        if (!intervalRef.current && !hasUnsavedChanges) {
           // Rafraîchir immédiatement
           refreshUserData();
 
@@ -94,7 +103,8 @@ const PositionsPage: React.FC = () => {
     };
 
     // Démarrer la mise à jour automatique si la page est visible au montage
-    if (!document.hidden) {
+    // et qu'il n'y a pas de changements non sauvegardés
+    if (!document.hidden && !hasUnsavedChanges) {
       intervalRef.current = setInterval(() => {
         refreshUserData();
       }, 30000);
@@ -110,7 +120,7 @@ const PositionsPage: React.FC = () => {
       }
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [addressToCheck, refreshUserData]);
+  }, [addressToCheck, refreshUserData, hasUnsavedChanges]);
 
   const portfolioData = useMemo(() => {
     if (!portfolioMetrics?.[3]?.[1]) return [];
@@ -337,6 +347,7 @@ const PositionsPage: React.FC = () => {
         clearinghouseState={clearinghouseState}
         totalAccountValueUSD={totalAccountValueUSD}
         isWatchMode={isWatchMode}
+        onUnsavedChanges={setHasUnsavedChanges}
       />
     </div>
   );

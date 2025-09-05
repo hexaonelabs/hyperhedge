@@ -28,6 +28,7 @@ interface PositionsWidgetProps {
   clearinghouseState: hl.PerpsClearinghouseState | null;
   totalAccountValueUSD: number;
   isWatchMode: boolean;
+  onUnsavedChanges?: (hasChanges: boolean) => void;
 }
 
 export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
@@ -36,12 +37,20 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   clearinghouseState,
   totalAccountValueUSD,
   isWatchMode,
+  onUnsavedChanges,
 }) => {
   // State pour gérer les changements d'allocation
   const [allocationChanges, setAllocationChanges] = useState<Record<string, number>>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [resetTrigger, setResetTrigger] = useState(0);
   const [isResetting, setIsResetting] = useState(false);
+
+  // Notifier le parent quand hasUnsavedChanges change
+  React.useEffect(() => {
+    if (onUnsavedChanges) {
+      onUnsavedChanges(hasUnsavedChanges);
+    }
+  }, [hasUnsavedChanges, onUnsavedChanges]);
 
   // Calculer les réserves USDC
   const usdcReserves = useMemo(() => {
