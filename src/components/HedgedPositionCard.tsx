@@ -6,6 +6,7 @@ interface HedgedPositionCardProps {
   position: HedgePositionSummary;
   totalPortfolioValue: number;
   onAllocationChange: (symbol: string, percentage: number) => void;
+  currentAllocation?: number;
   className?: string;
 }
 
@@ -13,13 +14,21 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
   position,
   totalPortfolioValue,
   onAllocationChange,
+  currentAllocation,
   className = "",
 }) => {
   // Calculate current position value in USD
   const positionValueUSD = position.margin + (position.spotBalance * (position.perpValueUSD / Math.abs(position.perpPosition) || 0));
-  const currentAllocation = totalPortfolioValue > 0 ? (positionValueUSD / totalPortfolioValue) * 100 : 0;
+  const initialAllocation = totalPortfolioValue > 0 ? (positionValueUSD / totalPortfolioValue) * 100 : 0;
   
-  const [sliderValue, setSliderValue] = useState(currentAllocation);
+  const [sliderValue, setSliderValue] = useState(currentAllocation !== undefined ? currentAllocation : initialAllocation);
+
+  // Update slider when currentAllocation changes
+  React.useEffect(() => {
+    if (currentAllocation !== undefined) {
+      setSliderValue(currentAllocation);
+    }
+  }, [currentAllocation]);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseInt(e.target.value);
@@ -27,13 +36,16 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
     onAllocationChange(position.symbol, newValue);
   };
 
+  // Check if allocation has changed
+  const hasChanged = Math.abs(sliderValue - initialAllocation) > 1;
+
   return (
-    <div className={`bg-dark-800 border border-dark-700 rounded-xl p-6 ${className}`}>
+    <div className={`bg-dark-800 border ${hasChanged ? 'border-orange-500/50 shadow-orange-500/20 shadow-lg' : 'border-dark-700'} rounded-xl p-6 transition-all duration-300 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary-500/10 rounded-lg">
-            <Shield className="w-5 h-5 text-primary-400" />
+          <div className={`p-2 ${hasChanged ? 'bg-orange-500/20' : 'bg-primary-500/10'} rounded-lg transition-colors duration-300`}>
+            <Shield className={`w-5 h-5 ${hasChanged ? 'text-orange-400' : 'text-primary-400'} transition-colors duration-300`} />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-white">{position.symbol}</h3>
@@ -43,6 +55,9 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
         <div className="text-right">
           <div className="text-white font-semibold">${positionValueUSD.toFixed(2)}</div>
           <div className="text-xs text-dark-400">Position Value</div>
+          {hasChanged && (
+            <div className="text-xs text-orange-400 font-medium mt-1">Modified</div>
+          )}
         </div>
       </div>
 
@@ -70,7 +85,16 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-dark-400 text-sm">Portfolio Allocation</span>
-          <span className="text-white font-medium">{Math.round(sliderValue)}%</span>
+          <div className="flex items-center gap-2">
+            {hasChanged && (
+              <span className="text-xs text-orange-400 font-medium">
+                {initialAllocation.toFixed(0)}% → 
+              </span>
+            )}
+            <span className={`font-medium ${hasChanged ? 'text-orange-400' : 'text-white'}`}>
+              {Math.round(sliderValue)}%
+            </span>
+          </div>
         </div>
         
         {/* Slider */}

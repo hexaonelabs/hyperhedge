@@ -8,6 +8,7 @@ interface UnhedgedPositionCardProps {
   type: "spot" | "perp";
   totalPortfolioValue: number;
   onAllocationChange: (symbol: string, percentage: number) => void;
+  currentAllocation?: number;
   className?: string;
   perpPosition?: number;
   leverage?: number;
@@ -21,19 +22,30 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
   type,
   totalPortfolioValue,
   onAllocationChange,
+  currentAllocation,
   className = "",
   perpPosition,
   leverage,
   margin,
 }) => {
-  const currentAllocation = totalPortfolioValue > 0 ? (valueUSD / totalPortfolioValue) * 100 : 0;
-  const [sliderValue, setSliderValue] = useState(currentAllocation);
+  const initialAllocation = totalPortfolioValue > 0 ? (valueUSD / totalPortfolioValue) * 100 : 0;
+  const [sliderValue, setSliderValue] = useState(currentAllocation !== undefined ? currentAllocation : initialAllocation);
+
+  // Update slider when currentAllocation changes
+  React.useEffect(() => {
+    if (currentAllocation !== undefined) {
+      setSliderValue(currentAllocation);
+    }
+  }, [currentAllocation]);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = parseInt(e.target.value);
     setSliderValue(newValue);
     onAllocationChange(symbol, newValue);
   };
+
+  // Check if allocation has changed
+  const hasChanged = Math.abs(sliderValue - initialAllocation) > 1;
 
   const getPositionType = () => {
     if (type === "spot") return { label: "SPOT", color: "text-blue-400", bgColor: "bg-blue-500/20" };
@@ -45,16 +57,21 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
   const positionType = getPositionType();
 
   return (
-    <div className={`bg-dark-800 border border-dark-700 rounded-xl p-6 ${className}`}>
+    <div className={`bg-dark-800 border ${hasChanged ? 'border-orange-500/50 shadow-orange-500/20 shadow-lg' : 'border-dark-700'} rounded-xl p-6 transition-all duration-300 ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-orange-500/10 rounded-lg">
-            <AlertTriangle className="w-5 h-5 text-orange-400" />
+          <div className={`p-2 ${hasChanged ? 'bg-orange-500/30' : 'bg-orange-500/10'} rounded-lg transition-colors duration-300`}>
+            <AlertTriangle className={`w-5 h-5 ${hasChanged ? 'text-orange-300' : 'text-orange-400'} transition-colors duration-300`} />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-white">{symbol}</h3>
-            <span className="text-sm text-dark-400">Unhedged Position</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-dark-400">Unhedged Position</span>
+              {hasChanged && (
+                <span className="text-xs text-orange-400 font-medium">Modified</span>
+              )}
+            </div>
           </div>
         </div>
         <span className={`px-3 py-1 rounded-full text-sm font-medium ${positionType.bgColor} ${positionType.color}`}>
@@ -97,7 +114,16 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-dark-400 text-sm">Portfolio Allocation</span>
-          <span className="text-white font-medium">{Math.round(sliderValue)}%</span>
+          <div className="flex items-center gap-2">
+            {hasChanged && (
+              <span className="text-xs text-orange-400 font-medium">
+                {initialAllocation.toFixed(0)}% → 
+              </span>
+            )}
+            <span className={`font-medium ${hasChanged ? 'text-orange-400' : 'text-white'}`}>
+              {Math.round(sliderValue)}%
+            </span>
+          </div>
         </div>
         
         {/* Slider */}

@@ -5,6 +5,9 @@ import {
   Activity,
   DollarSign,
   BarChart3,
+  Save,
+  X,
+  AlertCircle,
 } from "lucide-react";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
 import FundingsChart from "../components/FundingsChart";
@@ -97,11 +100,45 @@ const PositionsPage: React.FC = () => {
     };
   }, [spotClearinghouseState, clearinghouseState, hedgePositions]);
 
-  // Handle allocation changes
+  // Handle allocation changes and track modifications
+  const [allocationChanges, setAllocationChanges] = React.useState<Record<string, number>>({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+
+  const getPositionValue = (position: {valueUSD?: number; margin?: number}): number => {
+    return position.valueUSD || position.margin || 0;
+  };
+
   const handleAllocationChange = (symbol: string, percentage: number) => {
     console.log(`Allocation change for ${symbol}: ${percentage}%`);
-    // Here you can implement the logic to update position allocations
-    // This might involve API calls to adjust position sizes
+    
+    // Find position and calculate initial allocation
+    const position = hedgedPositions.find(p => p.symbol === symbol) || 
+                    unhedgedPositions.find(p => p.symbol === symbol);
+    
+    const positionValue = position ? getPositionValue(position) : 0;
+    const initialAllocation = totalAccountValueUSD > 0 ? (positionValue / totalAccountValueUSD * 100) : 0;
+    
+    // Update changes
+    const newChanges = { ...allocationChanges, [symbol]: percentage };
+    setAllocationChanges(newChanges);
+    
+    // Check if any allocation differs from initial
+    const hasChanges = Math.abs(percentage - initialAllocation) > 1; // 1% threshold
+    setHasUnsavedChanges(hasChanges);
+  };
+
+  const handleUpdateStrategy = async () => {
+    console.log('Updating strategy with changes:', allocationChanges);
+    // Here you would implement the actual API calls to update positions
+    // For now, just reset the changes
+    setAllocationChanges({});
+    setHasUnsavedChanges(false);
+    // You could show a success notification here
+  };
+
+  const handleCancelChanges = () => {
+    setAllocationChanges({});
+    setHasUnsavedChanges(false);
   };
 
   // Calculate statistics from positions
@@ -302,6 +339,41 @@ const PositionsPage: React.FC = () => {
             perpUSDC={usdcReserves.perpUSDC}
           />
 
+          {/* Strategy Changes Notification */}
+          {hasUnsavedChanges && (
+            <div className="mt-6 bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-xl p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-500/20 rounded-lg">
+                    <AlertCircle className="w-5 h-5 text-orange-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-semibold">Strategy Changes Detected</h4>
+                    <p className="text-orange-200 text-sm">
+                      You have modified your portfolio allocation. Review and apply changes below.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCancelChanges}
+                    className="px-4 py-2 text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-500/50 rounded-lg transition-colors duration-200 flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleUpdateStrategy}
+                    className="px-4 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white font-semibold rounded-lg transition-all duration-200 flex items-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    Update Strategy
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="mt-8">
             {/* Hedged Positions */}
             {hedgedPositions.length > 0 && (
@@ -316,6 +388,7 @@ const PositionsPage: React.FC = () => {
                       position={position}
                       totalPortfolioValue={totalAccountValueUSD}
                       onAllocationChange={handleAllocationChange}
+                      currentAllocation={allocationChanges[position.symbol]}
                     />
                   ))}
                 </div>
@@ -339,6 +412,7 @@ const PositionsPage: React.FC = () => {
                       type={position.type}
                       totalPortfolioValue={totalAccountValueUSD}
                       onAllocationChange={handleAllocationChange}
+                      currentAllocation={allocationChanges[position.symbol]}
                       perpPosition={
                         "perpPosition" in position
                           ? position.perpPosition
