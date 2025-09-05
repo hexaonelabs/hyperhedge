@@ -250,7 +250,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                     ? "bg-red-500"
                     : totalAllocation > 98.5
                     ? "bg-yellow-500"
-                    : "bg-green-500"
+                    : "bg-primary-500"
                 }`}
                 style={{ width: `${Math.min(totalAllocation, 100)}%` }}
               />

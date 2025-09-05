@@ -288,7 +288,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                       onChange={(e) =>
                         setFormConfig({
                           ...formConfig,
-                          subAccountAddress: e.target.value,
+                          subAccountAddress: e.target.value as `0x${string}`,
                         })
                       }
                       placeholder="0x..."
@@ -530,7 +530,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                         onChange={(e) =>
                           setFormConfig({
                             ...formConfig!,
-                            subAccountAddress: e.target.value,
+                            subAccountAddress: e.target.value as `0x${string}`,
                           })
                         }
                         placeholder="0x..."
