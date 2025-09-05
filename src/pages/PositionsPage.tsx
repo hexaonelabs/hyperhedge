@@ -1,28 +1,108 @@
 import React from "react";
-import { TrendingUp, PieChart, Activity, DollarSign } from "lucide-react";
+import {
+  TrendingUp,
+  PieChart,
+  Activity,
+  DollarSign,
+  BarChart3,
+} from "lucide-react";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
 import FundingsChart from "../components/FundingsChart";
 import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
 import PortfolioChart from "../components/PortfolioChat";
 import { useWallet } from "../hooks/useWallet";
+import HedgedPositionCard from "../components/HedgedPositionCard";
+import UnhedgedPositionCard from "../components/UnhedgedPositionCard";
+import USDCReservesCard from "../components/USDCReservesCard";
 
 const PositionsPage: React.FC = () => {
+  const { address, openConnectModal } = useWallet();
   const {
-    address,
-    openConnectModal,
-  } = useWallet();
-  const { accountFundingHistory, hedgePositions, isLoading: loading, totalAccountValueUSD, accountPnl, raw: { portfolioMetrics } } = useHyperliquidProcessedData();
+    accountFundingHistory,
+    hedgePositions,
+    isLoading: loading,
+    totalAccountValueUSD,
+    accountPnl,
+    raw: { portfolioMetrics, spotClearinghouseState, clearinghouseState },
+  } = useHyperliquidProcessedData();
   const { config } = useHyperliquidConfig();
-  const addressToCheck = (config?.subAccountAddress || address) as `0x${string}`;
+  const addressToCheck = (config?.subAccountAddress ||
+    address) as `0x${string}`;
 
   const portfolioData = React.useMemo(() => {
-  if (!portfolioMetrics?.[3]?.[1]) return [];
+    if (!portfolioMetrics?.[3]?.[1]) return [];
 
-  return portfolioMetrics[3][1].accountValueHistory.map((item) => ({
-    time: item[0],
-    portfolioValue: Number(item[1]),
-  }));
-}, [portfolioMetrics]);
+    return portfolioMetrics[3][1].accountValueHistory.map((item) => ({
+      time: item[0],
+      portfolioValue: Number(item[1]),
+    }));
+  }, [portfolioMetrics]);
+
+  // Process USDC reserves
+  const usdcReserves = React.useMemo(() => {
+    const spotUSDC =
+      spotClearinghouseState?.balances.find((b) => b.coin === "USDC")?.total ||
+      "0";
+    const perpUSDC = clearinghouseState?.marginSummary.accountValue || "0";
+
+    return {
+      spotUSDC: Number(spotUSDC),
+      perpUSDC:
+        Number(perpUSDC) -
+        (hedgePositions?.reduce((sum, pos) => sum + pos.margin, 0) || 0),
+    };
+  }, [spotClearinghouseState, clearinghouseState, hedgePositions]);
+
+  // Separate hedged and unhedged positions
+  const { hedgedPositions, unhedgedPositions } = React.useMemo(() => {
+    if (!spotClearinghouseState || !clearinghouseState) {
+      return { hedgedPositions: [], unhedgedPositions: [] };
+    }
+
+    const spotPositions = spotClearinghouseState.balances.filter(
+      (b) => b.coin !== "USDC" && Number(b.total) > 0
+    );
+    const perpPositions = clearinghouseState.assetPositions.filter(
+      (p) => Number(p.position.szi) !== 0
+    );
+
+    const hedgedSymbols = hedgePositions?.map((hp) => hp.symbol) || [];
+
+    // Unhedged spot positions
+    const unhedgedSpot = spotPositions
+      .filter((spot) => !hedgedSymbols.includes(spot.coin))
+      .map((spot) => ({
+        symbol: spot.coin,
+        balance: Number(spot.total),
+        valueUSD: Number(spot.total) * 1, // You might need to calculate actual price here
+        type: "spot" as const,
+      }));
+
+    // Unhedged perp positions
+    const unhedgedPerp = perpPositions
+      .filter((perp) => !hedgedSymbols.includes(perp.position.coin))
+      .map((perp) => ({
+        symbol: perp.position.coin,
+        balance: Number(perp.position.szi),
+        valueUSD: Number(perp.position.positionValue),
+        type: "perp" as const,
+        perpPosition: Number(perp.position.szi),
+        leverage: Number(perp.position.leverage?.value || 1),
+        margin: Number(perp.position.marginUsed),
+      }));
+
+    return {
+      hedgedPositions: hedgePositions || [],
+      unhedgedPositions: [...unhedgedSpot, ...unhedgedPerp],
+    };
+  }, [spotClearinghouseState, clearinghouseState, hedgePositions]);
+
+  // Handle allocation changes
+  const handleAllocationChange = (symbol: string, percentage: number) => {
+    console.log(`Allocation change for ${symbol}: ${percentage}%`);
+    // Here you can implement the logic to update position allocations
+    // This might involve API calls to adjust position sizes
+  };
 
   // Calculate statistics from positions
   const stats = React.useMemo(() => {
@@ -36,8 +116,13 @@ const PositionsPage: React.FC = () => {
       };
     }
     const totalValue = totalAccountValueUSD || 0;
-    const totalMargin = hedgePositions.reduce((sum, pos) => sum + pos.margin, 0);
-    const averageLeverage = hedgePositions.reduce((sum, pos) => sum + pos.leverage, 0) / hedgePositions.length;
+    const totalMargin = hedgePositions.reduce(
+      (sum, pos) => sum + pos.margin,
+      0
+    );
+    const averageLeverage =
+      hedgePositions.reduce((sum, pos) => sum + pos.leverage, 0) /
+      hedgePositions.length;
 
     return {
       totalValue,
@@ -60,8 +145,8 @@ const PositionsPage: React.FC = () => {
               Connect Your Wallet
             </h2>
             <p className="text-dark-300 mb-6 leading-relaxed">
-              To access your positions and fundings stats, 
-              connect your wallet and unlock all features.
+              To access your positions and fundings stats, connect your wallet
+              and unlock all features.
             </p>
             <div className="space-y-3 mb-6">
               <div className="flex items-center text-dark-400 text-sm">
@@ -77,7 +162,10 @@ const PositionsPage: React.FC = () => {
                 Detailed analytics
               </div>
             </div>
-            <button onClick={()=> openConnectModal()} className="w-full btn-primary font-semibold py-3 px-6 rounded-lg transition-colors duration-200">
+            <button
+              onClick={() => openConnectModal()}
+              className="w-full btn-primary font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+            >
               Connect Wallet
             </button>
           </div>
@@ -114,7 +202,7 @@ const PositionsPage: React.FC = () => {
           Track and manage all your open positions across different markets.
         </p>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-dark-900 border border-dark-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
@@ -124,9 +212,11 @@ const PositionsPage: React.FC = () => {
             <span className="text-dark-400 text-sm">USD</span>
           </div>
           <h3 className="text-white font-semibold">Total Value</h3>
-          <p className="text-2xl font-bold text-white">${stats.totalValue.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-white">
+            ${stats.totalValue.toFixed(2)}
+          </p>
         </div>
-        
+
         <div className="bg-dark-900 border border-dark-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-blue-500/10 rounded-lg">
@@ -135,9 +225,11 @@ const PositionsPage: React.FC = () => {
             <span className="text-dark-400 text-sm">Active</span>
           </div>
           <h3 className="text-white font-semibold">Open Positions</h3>
-          <p className="text-2xl font-bold text-white">{stats.activePositions}</p>
+          <p className="text-2xl font-bold text-white">
+            {stats.activePositions}
+          </p>
         </div>
-        
+
         <div className="bg-dark-900 border border-dark-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-green-500/10 rounded-lg">
@@ -146,9 +238,11 @@ const PositionsPage: React.FC = () => {
             <span className="text-green-400 text-sm">Avg</span>
           </div>
           <h3 className="text-white font-semibold">Avg Leverage</h3>
-          <p className="text-2xl font-bold text-white">{stats.averageLeverage.toFixed(2)}x</p>
+          <p className="text-2xl font-bold text-white">
+            {stats.averageLeverage.toFixed(2)}x
+          </p>
         </div>
-        
+
         <div className="bg-dark-900 border border-dark-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="p-2 bg-orange-500/10 rounded-lg">
@@ -157,18 +251,19 @@ const PositionsPage: React.FC = () => {
             <span className="text-dark-400 text-sm">USD</span>
           </div>
           <h3 className="text-white font-semibold">Account PnL</h3>
-          <p className={`text-2xl font-bold ${stats.pnl < 0 ? 'text-red-400' : 'text-green-400'}`}>
+          <p
+            className={`text-2xl font-bold ${
+              stats.pnl < 0 ? "text-red-400" : "text-green-400"
+            }`}
+          >
             ${stats.pnl.toFixed(2)}
           </p>
         </div>
       </div>
-      
+
       {/* Portfolio Chart */}
       {portfolioData && portfolioData.length > 0 && (
-        <PortfolioChart
-          data={portfolioData}
-          className="mb-6"
-        />
+        <PortfolioChart data={portfolioData} className="mb-6" />
       )}
 
       {/* Funding Rates Chart */}
@@ -181,53 +276,100 @@ const PositionsPage: React.FC = () => {
           className="mb-6"
         />
       )}
-      
-      <div className="bg-dark-900 border border-dark-800 rounded-xl p-6">
-        <h2 className="text-xl font-bold text-white mb-6">Position Details</h2>
-        {hedgePositions && hedgePositions.length > 0 ? (
-          <div className="space-y-4">
-            {hedgePositions.map((position, index) => (
-              <div key={index} className="bg-dark-800 border border-dark-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-white">{position.symbol}</h3>
-                  <span className={`px-2 py-1 rounded text-sm font-medium ${
-                    position.perpPosition > 0 ? 'bg-green-500/20 text-green-400' : 
-                    position.perpPosition < 0 ? 'bg-red-500/20 text-red-400' : 
-                    'bg-gray-500/20 text-gray-400'
-                  }`}>
-                    {position.perpPosition > 0 ? 'LONG' : position.perpPosition < 0 ? 'SHORT' : 'NEUTRAL'}
-                  </span>
+
+      {/* Position Details with New UI */}
+      <div className="space-y-6">
+        <div className={`bg-dark-900 border border-dark-800 rounded-xl p-6`}>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="p-2 bg-primary-500/10 rounded-lg">
+                  <BarChart3 className="w-5 h-5 text-primary-400" />
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                  <div>
-                    <p className="text-dark-400">Spot Balance</p>
-                    <p className="text-white font-medium">{position.spotBalance.toFixed(4)}</p>
-                  </div>
-                  <div>
-                    <p className="text-dark-400">Perp Position</p>
-                    <p className="text-white font-medium">{position.perpPosition.toFixed(4)}</p>
-                  </div>
-                  <div>
-                    <p className="text-dark-400">Leverage</p>
-                    <p className="text-white font-medium">{position.leverage.toFixed(2)}x</p>
-                  </div>
-                  <div>
-                    <p className="text-dark-400">Margin</p>
-                    <p className="text-white font-medium">${position.margin.toFixed(2)}</p>
-                  </div>
+                <h3 className="text-lg font-semibold text-white">
+                  Positions Management
+                </h3>
+              </div>
+              <p className="text-dark-400 text-sm">
+                Manage your open positions effectively.
+              </p>
+            </div>
+          </div>
+
+          {/* USDC Reserves */}
+          <USDCReservesCard
+            spotUSDC={usdcReserves.spotUSDC}
+            perpUSDC={usdcReserves.perpUSDC}
+          />
+
+          <div className="mt-8">
+            {/* Hedged Positions */}
+            {hedgedPositions.length > 0 && (
+              <div>
+                <h3 className="text-xl font-semibold text-white mb-4">
+                  Hedged Positions
+                </h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {hedgedPositions.map((position, index) => (
+                    <HedgedPositionCard
+                      key={`hedged-${position.symbol}-${index}`}
+                      position={position}
+                      totalPortfolioValue={totalAccountValueUSD}
+                      onAllocationChange={handleAllocationChange}
+                    />
+                  ))}
                 </div>
               </div>
-            ))}
+            )}
           </div>
-        ) : (
-          <div className="text-center py-12">
-            <Activity className="w-16 h-16 text-dark-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-dark-400 mb-2">No Positions Yet</h3>
-            <p className="text-dark-500 mb-6">
-              You don't have any open positions at the moment.
-            </p>
+          <div className="mt-8">
+            {/* Unhedged Positions */}
+            {unhedgedPositions.length > 0 && (
+              <div>
+                <h3 className="text-xl font-semibold text-white mb-4">
+                  Unhedged Positions
+                </h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {unhedgedPositions.map((position, index) => (
+                    <UnhedgedPositionCard
+                      key={`unhedged-${position.symbol}-${index}`}
+                      symbol={position.symbol}
+                      balance={position.balance}
+                      valueUSD={position.valueUSD}
+                      type={position.type}
+                      totalPortfolioValue={totalAccountValueUSD}
+                      onAllocationChange={handleAllocationChange}
+                      perpPosition={
+                        "perpPosition" in position
+                          ? position.perpPosition
+                          : undefined
+                      }
+                      leverage={
+                        "leverage" in position ? position.leverage : undefined
+                      }
+                      margin={
+                        "margin" in position ? position.margin : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+
+          {/* Empty State */}
+          {hedgedPositions.length === 0 && unhedgedPositions.length === 0 && (
+            <div className="bg-dark-900 border border-dark-800 rounded-xl p-12 text-center">
+              <Activity className="w-16 h-16 text-dark-600 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-dark-400 mb-2">
+                No Positions Yet
+              </h3>
+              <p className="text-dark-500 mb-6">
+                You don't have any open positions at the moment.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
