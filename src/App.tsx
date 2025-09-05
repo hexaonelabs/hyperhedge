@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Routes, Route } from "react-router-dom";
 import Header from "./components/Header";
 import Footer from "./components/Footer";
+import ScrollToTop from "./components/ScrollToTop";
 import NotificationToast from "./components/NotificationToast";
 import useToggle from "./hooks/useToggle";
 import { useNotification } from "./hooks/useNotification";
@@ -37,6 +38,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-dark-950">
+      <ScrollToTop />
       <Header isMenuOpen={isMenuOpen} toggleMenu={toggleMenu} />
 
       <main>

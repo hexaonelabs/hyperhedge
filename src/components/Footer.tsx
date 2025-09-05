@@ -1,5 +1,6 @@
 import React from "react";
 import { TrendingUp, Github } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const Footer: React.FC = () => {
   return (
@@ -36,12 +37,12 @@ const Footer: React.FC = () => {
             </h4>
             <ul className="space-y-3">
               <li>
-                <a
-                  href="#"
+                <Link
+                  to="/markets"
                   className="text-dark-300 hover:text-primary-400 transition-colors"
                 >
                   Market
-                </a>
+                </Link>
               </li>
               <li>
                 <a
