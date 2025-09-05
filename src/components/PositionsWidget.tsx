@@ -80,17 +80,16 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
     );
 
     const hedgedSymbols = hedgePositions?.map((hp) => hp.symbol) || [];
-
     // Positions spot non hedgées
     const unhedgedSpot = spotPositions
-      .filter((spot) => !hedgedSymbols.includes(spot.coin))
+      .filter((spot) => !hedgedSymbols.includes(spot.coin) && !hedgedSymbols.map(s => (`U${s}`)).includes(spot.coin))
       .map((spot) => ({
         symbol: spot.coin,
         balance: Number(spot.total),
         valueUSD: Number(spot.total) * 1, // Vous pourriez avoir besoin de calculer le prix réel ici
         type: "spot" as const,
       }));
-
+      
     // Positions perp non hedgées
     const unhedgedPerp = perpPositions
       .filter((perp) => !hedgedSymbols.includes(perp.position.coin))

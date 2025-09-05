@@ -3,7 +3,7 @@ import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import * as hl from "@nktkas/hyperliquid";
 import { arbitrum } from "viem/chains";
-import { HedgeCalculation } from "../types";
+import { HedgeCalculation } from "../utils/hedgeCalculations";
 
 const openHedgePosition = async (
   privateKey: `0x${string}`,
