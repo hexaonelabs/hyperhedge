@@ -1,13 +1,9 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import {
   TrendingUp,
   PieChart,
   Activity,
   DollarSign,
-  BarChart3,
-  Save,
-  X,
-  AlertCircle,
   Eye,
 } from "lucide-react";
 import { useParams } from "react-router-dom";
@@ -16,9 +12,7 @@ import FundingsChart from "../components/FundingsChart";
 import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
 import PortfolioChart from "../components/PortfolioChat";
 import { useWallet } from "../hooks/useWallet";
-import HedgedPositionCard from "../components/HedgedPositionCard";
-import UnhedgedPositionCard from "../components/UnhedgedPositionCard";
-import USDCReservesCard from "../components/USDCReservesCard";
+import {PositionsWidget} from "../components/PositionsWidget";
 import { useWatchMode } from "../hooks/useWatchMode";
 import WatchModeInput from "../components/WatchModeInput";
 import WatchModeIndicator from "../components/WatchModeIndicator";
@@ -38,7 +32,7 @@ const PositionsPage: React.FC = () => {
   } = useHyperliquidProcessedData();
   const { config } = useHyperliquidConfig();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // State pour gérer l'affichage du formulaire de watch mode
   const [showWatchModeInput, setShowWatchModeInput] = React.useState(false);
 
@@ -47,8 +41,13 @@ const PositionsPage: React.FC = () => {
     return /^0x[a-fA-F0-9]{40}$/.test(address);
   };
 
+  // En mode watch, utiliser l'adresse du watch mode, sinon utiliser l'adresse configurée ou connectée
+  const addressToCheck = isWatchMode
+    ? watchAddress
+    : config?.subAccountAddress || address;
+
   // Effet pour synchroniser l'URL avec le watch mode
-  React.useEffect(() => {
+  useEffect(() => {
     if (urlAddress && isValidEthereumAddress(urlAddress)) {
       // Activer le watch mode avec l'adresse de l'URL
       setWatchAddress(urlAddress);
@@ -59,15 +58,12 @@ const PositionsPage: React.FC = () => {
   }, [urlAddress, setWatchAddress, isWatchMode]);
 
   // Effet pour rafraîchir les données quand l'adresse watch change
-  React.useEffect(() => {
+  useEffect(() => {
     if (isWatchMode && watchAddress) {
       // Déclencher le rafraîchissement des données pour la nouvelle adresse
       refreshUserData();
     }
   }, [isWatchMode, watchAddress, refreshUserData]);
-  
-  // En mode watch, utiliser l'adresse du watch mode, sinon utiliser l'adresse configurée ou connectée
-  const addressToCheck = isWatchMode ? watchAddress : (config?.subAccountAddress || address);
 
   // Mise à jour automatique des données de compte toutes les 30 secondes quand la page est visible
   useEffect(() => {
@@ -88,7 +84,7 @@ const PositionsPage: React.FC = () => {
         if (!intervalRef.current) {
           // Rafraîchir immédiatement
           refreshUserData();
-          
+
           // Puis programmer les mises à jour toutes les 30 secondes
           intervalRef.current = setInterval(() => {
             refreshUserData();
@@ -105,18 +101,18 @@ const PositionsPage: React.FC = () => {
     }
 
     // Écouter les changements de visibilité
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // Nettoyage à la destruction du composant
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [addressToCheck, refreshUserData]);
 
-  const portfolioData = React.useMemo(() => {
+  const portfolioData = useMemo(() => {
     if (!portfolioMetrics?.[3]?.[1]) return [];
 
     return portfolioMetrics[3][1].accountValueHistory.map((item) => ({
@@ -124,168 +120,6 @@ const PositionsPage: React.FC = () => {
       portfolioValue: Number(item[1]),
     }));
   }, [portfolioMetrics]);
-
-  // Process USDC reserves
-  const usdcReserves = React.useMemo(() => {
-    const spotUSDC =
-      spotClearinghouseState?.balances.find((b) => b.coin === "USDC")?.total ||
-      "0";
-    const perpUSDC = clearinghouseState?.marginSummary.accountValue || "0";
-
-    return {
-      spotUSDC: Number(spotUSDC),
-      perpUSDC:
-        Number(perpUSDC) -
-        (hedgePositions?.reduce((sum, pos) => sum + pos.margin, 0) || 0),
-    };
-  }, [spotClearinghouseState, clearinghouseState, hedgePositions]);
-
-  // Separate hedged and unhedged positions
-  const { hedgedPositions, unhedgedPositions } = React.useMemo(() => {
-    if (!spotClearinghouseState || !clearinghouseState) {
-      return { hedgedPositions: [], unhedgedPositions: [] };
-    }
-
-    const spotPositions = spotClearinghouseState.balances.filter(
-      (b) => b.coin !== "USDC" && Number(b.total) > 0
-    );
-    const perpPositions = clearinghouseState.assetPositions.filter(
-      (p) => Number(p.position.szi) !== 0
-    );
-
-    const hedgedSymbols = hedgePositions?.map((hp) => hp.symbol) || [];
-
-    // Unhedged spot positions
-    const unhedgedSpot = spotPositions
-      .filter((spot) => !hedgedSymbols.includes(spot.coin))
-      .map((spot) => ({
-        symbol: spot.coin,
-        balance: Number(spot.total),
-        valueUSD: Number(spot.total) * 1, // You might need to calculate actual price here
-        type: "spot" as const,
-      }));
-
-    // Unhedged perp positions
-    const unhedgedPerp = perpPositions
-      .filter((perp) => !hedgedSymbols.includes(perp.position.coin))
-      .map((perp) => ({
-        symbol: perp.position.coin,
-        balance: Number(perp.position.szi),
-        valueUSD: Number(perp.position.positionValue),
-        type: "perp" as const,
-        perpPosition: Number(perp.position.szi),
-        leverage: Number(perp.position.leverage?.value || 1),
-        margin: Number(perp.position.marginUsed),
-      }));
-
-    return {
-      hedgedPositions: hedgePositions || [],
-      unhedgedPositions: [...unhedgedSpot, ...unhedgedPerp],
-    };
-  }, [spotClearinghouseState, clearinghouseState, hedgePositions]);
-
-  // Handle allocation changes and track modifications
-  const [allocationChanges, setAllocationChanges] = React.useState<Record<string, number>>({});
-  const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
-  const [resetTrigger, setResetTrigger] = React.useState(0); // Trigger to force reset
-  const [isResetting, setIsResetting] = React.useState(false); // Flag to prevent updates during reset
-
-  const getPositionValue = (position: {valueUSD?: number; margin?: number}): number => {
-    return position.valueUSD || position.margin || 0;
-  };
-
-  const handleAllocationChange = (symbol: string, percentage: number) => {
-    // Don't process changes during reset
-    if (isResetting) return;
-    
-    console.log(`Allocation change for ${symbol}: ${percentage}%`);
-    
-    // Find position and calculate initial allocation
-    const position = hedgedPositions.find(p => p.symbol === symbol) || 
-                    unhedgedPositions.find(p => p.symbol === symbol);
-    
-    const positionValue = position ? getPositionValue(position) : 0;
-    const initialAllocation = totalAccountValueUSD > 0 ? (positionValue / totalAccountValueUSD * 100) : 0;
-    
-    // Update changes
-    const newChanges = { ...allocationChanges, [symbol]: percentage };
-    setAllocationChanges(newChanges);
-    
-    // Check if any allocation differs from initial
-    const hasChanges = Math.abs(percentage - initialAllocation) > 1; // 1% threshold
-    setHasUnsavedChanges(hasChanges);
-  };
-
-  // Calculate total allocation for positions only (excluding USDC reserves)
-  const getTotalPositionsAllocation = () => {
-    if (totalAccountValueUSD <= 0) return 0;
-    
-    let totalAllocated = 0;
-    
-    // Hedged positions
-    hedgedPositions.forEach(position => {
-      const symbol = position.symbol;
-      const currentAlloc = allocationChanges[symbol];
-      
-      if (currentAlloc !== undefined) {
-        // Use changed allocation
-        totalAllocated += currentAlloc;
-      } else {
-        // Use current allocation based on position value
-        const positionValue = position.margin + (position.spotBalance * (position.perpValueUSD / Math.abs(position.perpPosition) || 0));
-        const currentAllocation = (positionValue / totalAccountValueUSD) * 100;
-        totalAllocated += currentAllocation;
-      }
-    });
-    
-    // Unhedged positions
-    unhedgedPositions.forEach(position => {
-      const symbol = position.symbol;
-      const currentAlloc = allocationChanges[symbol];
-      
-      if (currentAlloc !== undefined) {
-        // Use changed allocation
-        totalAllocated += currentAlloc;
-      } else {
-        // Use current allocation based on position value
-        const positionValue = position.valueUSD;
-        const currentAllocation = (positionValue / totalAccountValueUSD) * 100;
-        totalAllocated += currentAllocation;
-      }
-    });
-    
-    return totalAllocated;
-  };
-
-  // Calculate total portfolio value including USDC reserves and all positions
-  const getTotalPortfolioValue = () => {
-    if (totalAccountValueUSD <= 0) return 0;
-    return totalAccountValueUSD;
-  };
-
-  const totalAllocation = getTotalPositionsAllocation();
-  const isOverAllocated = totalAllocation > 100;
-
-  const handleUpdateStrategy = async () => {
-    console.log('Updating strategy with changes:', allocationChanges);
-    // Here you would implement the actual API calls to update positions
-    // For now, just reset the changes
-    setAllocationChanges({});
-    setHasUnsavedChanges(false);
-    // You could show a success notification here
-  };
-
-  const handleCancelChanges = () => {
-    setIsResetting(true);
-    setAllocationChanges({});
-    setHasUnsavedChanges(false);
-    setResetTrigger(prev => prev + 1); // Force reset of all sliders
-    
-    // Reset the flag after a short delay to allow components to update
-    setTimeout(() => {
-      setIsResetting(false);
-    }, 100);
-  };
 
   // Calculate statistics from positions
   const stats = React.useMemo(() => {
@@ -331,8 +165,8 @@ const PositionsPage: React.FC = () => {
                   Connect Your Wallet
                 </h2>
                 <p className="text-dark-300 mb-6 leading-relaxed">
-                  To access your positions and funding stats, connect your wallet
-                  and unlock all features.
+                  To access your positions and funding stats, connect your
+                  wallet and unlock all features.
                 </p>
                 <div className="space-y-3 mb-6">
                   <div className="flex items-center text-dark-400 text-sm">
@@ -355,7 +189,7 @@ const PositionsPage: React.FC = () => {
                   >
                     Connect Wallet
                   </button>
-                  
+
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                       <div className="w-full border-t border-dark-700"></div>
@@ -364,7 +198,7 @@ const PositionsPage: React.FC = () => {
                       <span className="px-2 bg-dark-900 text-dark-400">or</span>
                     </div>
                   </div>
-                  
+
                   <button
                     onClick={() => setShowWatchModeInput(true)}
                     className="w-full flex items-center justify-center space-x-2 py-3 px-6 bg-dark-800 hover:bg-dark-700 text-dark-300 hover:text-white border border-dark-700 hover:border-dark-600 rounded-lg transition-colors duration-200"
@@ -407,19 +241,19 @@ const PositionsPage: React.FC = () => {
     <div className="container mx-auto px-4 py-8">
       {/* Watch mode indicator */}
       <WatchModeIndicator />
-      
+
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-4">
-          {isWatchMode ? 'Portfolio Analysis' : 'Your Positions'}
+          {isWatchMode ? "Portfolio Analysis" : "Your Positions"}
         </h1>
         <p className="text-dark-300">
-          {isWatchMode 
-            ? 'Detailed analysis of the selected portfolio.'
-            : 'Track and manage all your open positions across different markets.'
-          }
+          {isWatchMode
+            ? "Detailed analysis of the selected portfolio."
+            : "Track and manage all your open positions across different markets."}
         </p>
       </div>
 
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-dark-900 border border-dark-800 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
@@ -494,190 +328,14 @@ const PositionsPage: React.FC = () => {
         />
       )}
 
-      {/* Position Details with New UI */}
-      <div className="space-y-6">
-        <div className={`bg-dark-900 border border-dark-800 rounded-xl p-6`}>
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="p-2 bg-primary-500/10 rounded-lg">
-                  <BarChart3 className="w-5 h-5 text-primary-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-white">
-                  Positions Management
-                </h3>
-              </div>
-              <p className="text-dark-400 text-sm">
-                Manage your open positions effectively.
-              </p>
-            </div>
-            
-            {/* Total Allocation Indicator */}
-            <div className="lg:text-right">
-              <div className="flex items-center gap-2 mb-1 justify-start lg:justify-end">
-                <span className="text-dark-400 text-sm">Positions Allocation:</span>
-                <span className={`font-bold text-lg ${
-                  isOverAllocated ? 'text-red-400' : 
-                  totalAllocation > 98.5 ? 'text-yellow-400' : 
-                  'text-green-400'
-                }`}>
-                  {totalAllocation.toFixed(1)}%
-                </span>
-              </div>
-              <div className="text-xs text-dark-500 mb-2 text-left lg:text-right">
-                Hedged + Unhedged positions only
-              </div>
-              <div className={`w-full lg:w-32 h-2 bg-dark-600 rounded-full overflow-hidden lg:ml-auto`}>
-                <div 
-                  className={`h-full transition-all duration-300 ${
-                    isOverAllocated ? 'bg-red-500' : 
-                    totalAllocation > 98.5 ? 'bg-yellow-500' : 
-                    'bg-green-500'
-                  }`}
-                  style={{ width: `${Math.min(totalAllocation, 100)}%` }}
-                />
-                {isOverAllocated && (
-                  <div 
-                    className="h-full bg-red-600 opacity-50"
-                    style={{ width: `${totalAllocation - 100}%`, marginLeft: '100%', marginTop: '-8px' }}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* USDC Reserves */}
-          <USDCReservesCard
-            spotUSDC={usdcReserves.spotUSDC}
-            perpUSDC={usdcReserves.perpUSDC}
-            totalPortfolioValue={getTotalPortfolioValue()}
-          />
-
-          {/* Strategy Changes Notification - Only show if not in watch mode */}
-          {hasUnsavedChanges && !isWatchMode && (
-            <div className={`mt-6 ${isOverAllocated ? 'bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/20' : 'bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border-orange-500/20'} border rounded-xl p-4`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2 ${isOverAllocated ? 'bg-red-500/20' : 'bg-orange-500/20'} rounded-lg`}>
-                    <AlertCircle className={`w-5 h-5 ${isOverAllocated ? 'text-red-400' : 'text-orange-400'}`} />
-                  </div>
-                  <div>
-                    <h4 className="text-white font-semibold">
-                      {isOverAllocated ? 'Invalid Allocation' : 'Strategy Changes Detected'}
-                    </h4>
-                    {isOverAllocated ? (
-                      <p className="text-red-200 text-sm">
-                        Positions allocation ({totalAllocation.toFixed(1)}%) exceeds 100%. Please adjust your positions.
-                      </p>
-                    ) : (
-                      <p className="text-orange-200 text-sm">
-                        You have modified your portfolio allocation. Review and apply changes below.
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleCancelChanges}
-                    className="px-4 py-2 text-orange-400 hover:text-orange-300 border border-orange-500/30 hover:border-orange-500/50 rounded-lg transition-colors duration-200 flex items-center gap-2"
-                  >
-                    <X className="w-4 h-4" />
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleUpdateStrategy}
-                    disabled={isOverAllocated}
-                    className={`px-4 py-2 font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 ${
-                      isOverAllocated 
-                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
-                        : 'bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white'
-                    }`}
-                  >
-                    <Save className="w-4 h-4" />
-                    Update Strategy
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="mt-8">
-            {/* Hedged Positions */}
-            {hedgedPositions.length > 0 && (
-              <div>
-                <h3 className="text-xl font-semibold text-white mb-4">
-                  Hedged Positions
-                </h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {hedgedPositions.map((position, index) => (
-                    <HedgedPositionCard
-                      key={`hedged-${position.symbol}-${index}`}
-                      position={position}
-                      totalPortfolioValue={totalAccountValueUSD}
-                      onAllocationChange={handleAllocationChange}
-                      currentAllocation={allocationChanges[position.symbol]}
-                      resetTrigger={resetTrigger}
-                      totalAllocation={totalAllocation}
-                      disabled={isWatchMode}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="mt-8">
-            {/* Unhedged Positions */}
-            {unhedgedPositions.length > 0 && (
-              <div>
-                <h3 className="text-xl font-semibold text-white mb-4">
-                  Unhedged Positions
-                </h3>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {unhedgedPositions.map((position, index) => (
-                    <UnhedgedPositionCard
-                      key={`unhedged-${position.symbol}-${index}`}
-                      symbol={position.symbol}
-                      balance={position.balance}
-                      valueUSD={position.valueUSD}
-                      type={position.type}
-                      totalPortfolioValue={totalAccountValueUSD}
-                      onAllocationChange={handleAllocationChange}
-                      currentAllocation={allocationChanges[position.symbol]}
-                      resetTrigger={resetTrigger}
-                      totalAllocation={totalAllocation}
-                      disabled={isWatchMode}
-                      perpPosition={
-                        "perpPosition" in position
-                          ? position.perpPosition
-                          : undefined
-                      }
-                      leverage={
-                        "leverage" in position ? position.leverage : undefined
-                      }
-                      margin={
-                        "margin" in position ? position.margin : undefined
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Empty State */}
-          {hedgedPositions.length === 0 && unhedgedPositions.length === 0 && (
-            <div className="bg-dark-900 border border-dark-800 rounded-xl p-12 text-center">
-              <Activity className="w-16 h-16 text-dark-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-dark-400 mb-2">
-                No Positions Yet
-              </h3>
-              <p className="text-dark-500 mb-6">
-                You don't have any open positions at the moment.
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Position Widget */}
+      <PositionsWidget
+        hedgePositions={hedgePositions}
+        spotClearinghouseState={spotClearinghouseState}
+        clearinghouseState={clearinghouseState}
+        totalAccountValueUSD={totalAccountValueUSD}
+        isWatchMode={isWatchMode}
+      />
     </div>
   );
 };
