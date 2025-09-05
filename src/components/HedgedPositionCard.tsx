@@ -1,6 +1,11 @@
 import React, { useState } from "react";
 import { Shield, AlertCircle } from "lucide-react";
 import { HedgePositionSummary } from "../types";
+import { 
+  calculateHedgePositionFromAllocation, 
+  calculatePositionValue, 
+  getCurrentPrice 
+} from "../utils/hedgeCalculations";
 
 interface HedgedPositionCardProps {
   position: HedgePositionSummary;
@@ -22,10 +27,24 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
   className = "",
 }) => {
   // Calculate current position value in USD
-  const positionValueUSD = position.margin + (position.spotBalance * (position.perpValueUSD / Math.abs(position.perpPosition) || 0));
+  const positionValueUSD = calculatePositionValue(
+    position.spotBalance, 
+    position.perpPosition, 
+    position.perpValueUSD, 
+    position.margin
+  );
   const initialAllocation = totalPortfolioValue > 0 ? (positionValueUSD / totalPortfolioValue) * 100 : 0;
   
   const [sliderValue, setSliderValue] = useState(currentAllocation !== undefined ? currentAllocation : initialAllocation);
+
+  // Calculate dynamic values based on slider allocation
+  const currentPrice = getCurrentPrice(position.perpValueUSD, position.perpPosition);
+  const dynamicPositionBreakdown = calculateHedgePositionFromAllocation(
+    sliderValue,
+    totalPortfolioValue,
+    currentPrice,
+    position.leverage
+  );
 
   // Update slider when currentAllocation changes
   React.useEffect(() => {
@@ -65,7 +84,14 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
           </div>
         </div>
         <div className="text-right">
-          <div className="text-white font-semibold">${positionValueUSD.toFixed(2)}</div>
+          <div className="flex flex-col">
+            <div className="text-white font-semibold">${positionValueUSD.toFixed(2)}</div>
+            {hasChanged && (
+              <div className="text-orange-400 text-sm font-medium">
+                → ${dynamicPositionBreakdown.totalValue.toFixed(2)}
+              </div>
+            )}
+          </div>
           <div className="text-xs text-dark-400">Position Value</div>
           {hasChanged && (
             <div className="text-xs text-orange-400 font-medium mt-1">Modified</div>
@@ -77,11 +103,25 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div>
           <p className="text-dark-400 text-sm mb-1">Spot Balance</p>
-          <p className="text-white font-medium">{position.spotBalance.toFixed(4)}</p>
+          <div className="flex flex-col">
+            <p className="text-white font-medium">{position.spotBalance.toFixed(4)}</p>
+            {hasChanged && (
+              <p className="text-orange-400 text-xs">
+                → {dynamicPositionBreakdown.spotBalance.toFixed(4)}
+              </p>
+            )}
+          </div>
         </div>
         <div>
           <p className="text-dark-400 text-sm mb-1">Perp Position</p>
-          <p className="text-white font-medium">{position.perpPosition.toFixed(4)}</p>
+          <div className="flex flex-col">
+            <p className="text-white font-medium">{position.perpPosition.toFixed(4)}</p>
+            {hasChanged && (
+              <p className="text-orange-400 text-xs">
+                → {dynamicPositionBreakdown.perpPosition.toFixed(4)}
+              </p>
+            )}
+          </div>
         </div>
         <div>
           <p className="text-dark-400 text-sm mb-1">Leverage</p>
@@ -89,7 +129,14 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
         </div>
         <div>
           <p className="text-dark-400 text-sm mb-1">Margin Used</p>
-          <p className="text-white font-medium">${position.margin.toFixed(2)}</p>
+          <div className="flex flex-col">
+            <p className="text-white font-medium">${position.margin.toFixed(2)}</p>
+            {hasChanged && (
+              <p className="text-orange-400 text-xs">
+                → ${dynamicPositionBreakdown.margin.toFixed(2)}
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
@@ -128,7 +175,14 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
         {/* Value Display */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-dark-400">Position Value</span>
-          <span className="text-white font-medium">${positionValueUSD.toFixed(2)}</span>
+          <div className="flex flex-col items-end">
+            <span className="text-white font-medium">${positionValueUSD.toFixed(2)}</span>
+            {hasChanged && (
+              <span className="text-orange-400 text-xs">
+                → ${dynamicPositionBreakdown.totalValue.toFixed(2)}
+              </span>
+            )}
+          </div>
         </div>
         
         {/* Over-allocation Warning */}

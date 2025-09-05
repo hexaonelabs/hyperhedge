@@ -9,13 +9,14 @@ import {
   ChevronUp,
   ChevronDown,
 } from "lucide-react";
-import { FundingRate, HedgeCalculation } from "../types";
+import { FundingRate } from "../types";
 import { openHedgePosition } from "../services/hl-exchange.service";
 import { useWallet } from "../hooks/useWallet";
 import { useNotification } from "../hooks/useNotification";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
 import { SecureKeyManager } from "../utils/SecureKeyManager";
 import { useHyperliquidData } from "../hooks/useHyperliquidData";
+import { calculateHedgeStrategy, HedgeCalculation } from "../utils/hedgeCalculations";
 
 interface HedgeFormProps {
   isOpen: boolean;
@@ -47,35 +48,9 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
   const calculations = useMemo((): HedgeCalculation => {
     const hedgeAmount = parseFloat(hedgeValue) || 0;
     const currentPrice = selectedMarket?.markPrice || 0;
-
-    // Répartition: Spot + Short
-    // Spot = une partie du hedge value
-    // Short = le reste avec levier pour couvrir la même valeur
-    const spotAmount = hedgeAmount * (leverage / (leverage + 1));
-    const shortMargin = hedgeAmount - spotAmount;
-    const shortNotional = shortMargin * leverage;
-
-    // Taille de la position short en tokens
-    const positionSize = shortNotional / currentPrice;
-
-    // Prix de liquidation approximatif (simplifié)
-    // Pour une position short, liquidation = prix d'entrée * (1 + 1/leverage * 0.9)
-    const liquidationPrice = currentPrice * (1 + (1 / leverage) * 0.9);
-
-    // Rendement annualisé basé sur le funding rate
     const fundingRate = selectedMarket?.fundingRate || 0;
-    const annualizedReturn = fundingRate * 24 * 365 * 100; // 24 fois par jour (toutes les heures), 365 jours
 
-    return {
-      hedgeValue: hedgeAmount,
-      leverage,
-      spotAmount,
-      shortMargin,
-      shortNotional,
-      liquidationPrice,
-      positionSize,
-      annualizedReturn,
-    };
+    return calculateHedgeStrategy(hedgeAmount, leverage, currentPrice, fundingRate);
   }, [hedgeValue, leverage, selectedMarket]);
 
   const handleSubmit = async (e: React.FormEvent) => {

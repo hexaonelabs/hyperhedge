@@ -75,17 +75,6 @@ export interface RiskMetrics {
   beta: number;
 }
 
-export interface HedgeCalculation {
-  hedgeValue: number;
-  leverage: number;
-  spotAmount: number;
-  shortMargin: number;
-  shortNotional: number;
-  liquidationPrice: number;
-  positionSize: number;
-  annualizedReturn: number;
-}
-
 export interface OrderResponse {
   oid: string;
   status: "pending" | "filled" | "cancelled" | "rejected";
