@@ -15,6 +15,7 @@ interface HedgedPositionCardProps {
   resetTrigger?: number;
   totalAllocation?: number;
   className?: string;
+  disabled?: boolean;
 }
 
 const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
@@ -25,6 +26,7 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
   resetTrigger,
   totalAllocation,
   className = "",
+  disabled = false,
 }) => {
   // Calculate current position value in USD
   const positionValueUSD = calculatePositionValue(
@@ -61,6 +63,8 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
   }, [resetTrigger, initialAllocation]);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    
     const newValue = parseInt(e.target.value);
     setSliderValue(newValue);
     onAllocationChange(position.symbol, newValue);
@@ -165,7 +169,8 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
             step="1"
             value={sliderValue}
             onChange={handleSliderChange}
-            className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer"
+            disabled={disabled}
+            className={`w-full h-2 bg-dark-600 rounded-lg appearance-none ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
             style={{
               background: `linear-gradient(to right, #10b981 0%, #10b981 ${sliderValue}%, #374151 ${sliderValue}%, #374151 100%)`
             }}

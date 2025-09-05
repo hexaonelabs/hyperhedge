@@ -8,6 +8,7 @@ import React, {
 import * as hl from "@nktkas/hyperliquid";
 import { useWallet } from "../hooks/useWallet";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
+import { useWatchMode } from "../hooks/useWatchMode";
 import { processFundingRates } from "../services/hl-data-processor.service";
 
 // Types pour les données Hyperliquid utilisant les types de la bibliothèque
@@ -55,6 +56,7 @@ export const HyperliquidDataProvider: React.FC<
 > = ({ children }) => {
   const { address, isConnected } = useWallet();
   const { config, isLoading: isConfigLoading } = useHyperliquidConfig();
+  const { isWatchMode, watchAddress } = useWatchMode();
   console.log("Config Hyperliquid:", config, isConfigLoading);
   // États
   const [isLoading, setIsLoading] = useState(isConfigLoading);
@@ -132,8 +134,13 @@ export const HyperliquidDataProvider: React.FC<
 
   // Méthode pour rafraîchir les données utilisateur
   const refreshUserData = useCallback(async () => {
-    const addressToCheck = config?.subAccountAddress || address;
-    if (!infoClient || !addressToCheck || !isConnected) return;
+    // En mode watch, utiliser l'adresse du watch mode, sinon utiliser l'adresse configurée ou connectée
+    const addressToCheck = isWatchMode ? watchAddress : (config?.subAccountAddress || address);
+    
+    if (!infoClient || !addressToCheck) return;
+    
+    // En mode watch, on n'a pas besoin d'être connecté
+    if (!isWatchMode && !isConnected) return;
 
     try {
       setIsLoading(true);
@@ -141,13 +148,13 @@ export const HyperliquidDataProvider: React.FC<
 
       const [portfolioMetrics, spotState, clearingState, orders, funding] =
         await Promise.all([
-          infoClient.portfolio({ user: addressToCheck }),
-          infoClient.spotClearinghouseState({ user: addressToCheck }),
-          infoClient.clearinghouseState({ user: addressToCheck }),
-          infoClient.openOrders({ user: addressToCheck }),
+          infoClient.portfolio({ user: addressToCheck as `0x${string}` }),
+          infoClient.spotClearinghouseState({ user: addressToCheck as `0x${string}` }),
+          infoClient.clearinghouseState({ user: addressToCheck as `0x${string}` }),
+          infoClient.openOrders({ user: addressToCheck as `0x${string}` }),
           infoClient
             .userFunding({
-              user: addressToCheck,
+              user: addressToCheck as `0x${string}`,
               startTime: new Date("2025-09-01").getTime(),
             })
             .then((result) =>
@@ -169,7 +176,7 @@ export const HyperliquidDataProvider: React.FC<
     } finally {
       setIsLoading(false);
     }
-  }, [infoClient, address, isConnected, config?.subAccountAddress]);
+  }, [infoClient, address, isConnected, config?.subAccountAddress, isWatchMode, watchAddress]);
 
   // Méthode pour rafraîchir l'historique des funding
   const refreshFundingHistory = useCallback(

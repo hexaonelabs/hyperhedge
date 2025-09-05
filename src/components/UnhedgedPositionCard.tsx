@@ -15,6 +15,7 @@ interface UnhedgedPositionCardProps {
   perpPosition?: number;
   leverage?: number;
   margin?: number;
+  disabled?: boolean;
 }
 
 const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
@@ -31,6 +32,7 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
   perpPosition,
   leverage,
   margin,
+  disabled = false,
 }) => {
   const initialAllocation = totalPortfolioValue > 0 ? (valueUSD / totalPortfolioValue) * 100 : 0;
   const [sliderValue, setSliderValue] = useState(currentAllocation !== undefined ? currentAllocation : initialAllocation);
@@ -50,6 +52,8 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
   }, [resetTrigger, initialAllocation]);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    
     const newValue = parseInt(e.target.value);
     setSliderValue(newValue);
     onAllocationChange(symbol, newValue);
@@ -147,7 +151,8 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
             step="1"
             value={sliderValue}
             onChange={handleSliderChange}
-            className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer"
+            disabled={disabled}
+            className={`w-full h-2 bg-dark-600 rounded-lg appearance-none ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
             style={{
               background: `linear-gradient(to right, #f97316 0%, #f97316 ${sliderValue}%, #374151 ${sliderValue}%, #374151 100%)`
             }}
