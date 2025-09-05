@@ -22,7 +22,9 @@ const Hero: React.FC = () => {
     });
     // select 3 better tokens
     const topTokens = tokens.sort((a, b) => b.averageAPY - a.averageAPY).slice(0, 3);
-    const apy = (topTokens.reduce((acc, token) => acc + token.averageAPY, 0) / topTokens.length).toFixed(2);
+    const apy = topTokens.length > 0 
+      ? (topTokens.reduce((acc, token) => acc + token.averageAPY, 0) / topTokens.length).toFixed(2) 
+      : '0.00';
     const marketCount = fundingRates.length;
     const total24hVolume = fundingRates.reduce((acc, rate) => acc + rate.volume24h, 0);
     // console.log('Calculating stats from funding history:', fundingHistory, tokens, topTokens, apy);
@@ -66,7 +68,7 @@ const Hero: React.FC = () => {
           {/* Badge */}
           <div className="inline-flex items-center px-4 py-2 rounded-full bg-primary-900/30 border border-primary-700/30 text-primary-300 text-sm font-medium mb-8 animate-fade-in">
             <Shield size={16} className="mr-2" />
-            Build over Hyperliquid Protocol
+            Build on Hyperliquid Protocol
           </div>
 
           {/* Main heading */}
