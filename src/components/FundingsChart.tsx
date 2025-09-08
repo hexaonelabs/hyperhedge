@@ -9,6 +9,8 @@ import {
   AreaChart,
 } from "recharts";
 import { TrendingUp, DollarSign, BarChart3 } from "lucide-react";
+import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
+import { UserFundingUpdate } from "@nktkas/hyperliquid";
 
 interface FundingDataPoint {
   time: number;
@@ -30,6 +32,8 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
   initialAmountUSD,
   className = "",
 }) => {
+
+  const { raw: { userFunding } } = useHyperliquidProcessedData();
   // Format data for chart
   const chartData = data.map((point) => ({
     ...point,
@@ -43,11 +47,14 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
     }),
     fundingUSD: point.funding,
   }));
-
-  // Calculate APY progression data
-  const apyData = data.map((point) => {
-    const periodDays = (point.time - data[0].time) / (1000 * 60 * 60 * 24);
-    const annualizedReturn = periodDays > 0 ? (point.funding / initialAmountUSD) * (365 / periodDays) * 100 : 0;
+  // Calculate APY progression data based on real funding data
+  const apyData = (userFunding || [])?.map((point, index) => {
+    let instantAPY = 0;
+    
+    if (index > 0) {
+      instantAPY = Number(point.delta.fundingRate || 0) * 24 * 365 * 100;
+    }
+    
     return {
       ...point,
       date: new Date(point.time).toLocaleString("en-US", {
@@ -58,10 +65,10 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
         minute: "2-digit",
         hour12: false,
       }),
-      apy: annualizedReturn,
+      apy: instantAPY,
     };
   });
-
+// console.log('>>>>>', {apyData, userFunding});
   // Custom tooltip for funding chart
   const CustomFundingTooltip = ({
     active,
@@ -94,17 +101,25 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
     label,
   }: {
     active?: boolean;
-    payload?: Array<{ value: number }>;
+    payload?: Array<{ value: number; payload: UserFundingUpdate }>;
     label?: string;
   }) => {
     if (active && payload && payload.length) {
       const value = payload[0].value;
+      const dataPoint = payload[0].payload;
+      const fundingAmount = Number(dataPoint.delta.usdc || 0);
       return (
         <div className="bg-dark-800 border border-dark-600 rounded-lg p-3 shadow-lg">
           <p className="text-dark-300 text-sm mb-1">{label}</p>
           <p className="text-white font-semibold">
             {value >= 0 ? "+" : ""}
             {value.toFixed(2)}% APY
+          </p>
+          <p className="text-dark-400 text-xs mt-1">
+            Cumulative: ${fundingAmount.toFixed(8)}
+          </p>
+          <p className="text-dark-400 text-xs">
+            Instantaneous yield for this period
           </p>
         </div>
       );
@@ -115,6 +130,11 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
   const totalFunding = data[data.length - 1]?.funding || 0;
   const isPositive = totalFunding >= 0;
 
+  // Calculate APY statistics
+  const validAPYValues = apyData.filter(point => point.apy !== 0).map(point => point.apy);
+  const maxAPY = validAPYValues.length > 0 ? Math.max(...validAPYValues) : 0;
+
+  console.log('>>>' , apyData)
   return (
     <div
       className={`bg-dark-900 border border-dark-800 rounded-xl p-6 ${className}`}
@@ -152,9 +172,9 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-dark-800 border border-dark-700 rounded-lg p-4">
-          <p className="text-dark-400 text-sm mb-1">Estimated APY</p>
+          <p className="text-dark-400 text-sm mb-1">Average APY</p>
           <p
             className={`text-lg font-bold ${
               apyPercentage >= 0 ? "text-primary-400" : "text-red-400"
@@ -162,6 +182,18 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
           >
             {apyPercentage >= 0 ? "+" : ""}
             {apyPercentage.toFixed(2)}%
+          </p>
+        </div>
+
+        <div className="bg-dark-800 border border-dark-700 rounded-lg p-4">
+          <p className="text-dark-400 text-sm mb-1">Peak APY</p>
+          <p
+            className={`text-lg font-bold ${
+              maxAPY >= 0 ? "text-primary-400" : "text-red-400"
+            }`}
+          >
+            {maxAPY >= 0 ? "+" : ""}
+            {maxAPY.toFixed(1)}%
           </p>
         </div>
 
@@ -278,7 +310,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
         <div className="h-80">
           <h4 className="text-md font-semibold text-white mb-4 flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary-400" />
-            APY Progression
+            Instantaneous APY
           </h4>
           {apyData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
@@ -301,12 +333,12 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
                   >
                     <stop
                       offset="5%"
-                      stopColor={isPositive ? "#7bfcdd" : "#f87171"}
+                      stopColor="#94a3b8"
                       stopOpacity={0.3}
                     />
                     <stop
                       offset="95%"
-                      stopColor={isPositive ? "#7bfcdd" : "#f87171"}
+                      stopColor="#94a3b8"
                       stopOpacity={0}
                     />
                   </linearGradient>
@@ -327,20 +359,21 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: "#94a3b8", fontSize: 12 }}
-                  tickFormatter={(value) => `${value.toFixed(1)}%`}
+                  //tickFormatter={(value) => `${value.toFixed(1)}%`}
                   dx={-10}
+                  domain={['dataMin', 'dataMax']}
                 />
                 <Tooltip content={<CustomAPYTooltip />} />
                 <Area
                   type="monotone"
                   dataKey="apy"
-                  stroke={isPositive ? "#7bfcdd" : "#f87171"}
+                  stroke={"#7bfcdd"}
                   strokeWidth={2}
                   fill="url(#apyGradient)"
                   dot={false}
                   activeDot={{
                     r: 4,
-                    stroke: isPositive ? "#7bfcdd" : "#f87171",
+                    stroke: "#7bfcdd",
                     strokeWidth: 2,
                     fill: "#0f172a",
                   }}
