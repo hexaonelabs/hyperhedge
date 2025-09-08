@@ -2,7 +2,7 @@ import { createAppKit } from "@reown/appkit/react";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { arbitrum, mainnet, sepolia } from "@reown/appkit/networks";
 
-const projectId = import.meta.env.VITE_REOWN_APIKEY || "";
+const projectId = import.meta.env.VITE_REOWN_PROJECTID || "";
 
 const wagmiAdapter = new WagmiAdapter({
   networks: [mainnet, arbitrum, sepolia],
