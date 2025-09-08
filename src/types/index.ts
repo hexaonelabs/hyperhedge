@@ -8,22 +8,6 @@ export interface User {
   activePositions: number;
 }
 
-export interface HedgePosition {
-  id: string;
-  userId: string;
-  symbol: string;
-  size: number;
-  entryPrice: number;
-  currentPrice: number;
-  pnl: number;
-  fundingEarned: number;
-  status: "active" | "closed" | "liquidated";
-  createdAt: Date;
-  updatedAt: Date;
-  perpSide: "long" | "short";
-  spotAmount: number;
-}
-
 export interface FundingRate {
   id: string;
   symbol: string;
@@ -96,6 +80,7 @@ export interface HedgePositionSummary {
   perpPosition: number;
   leverage: number;
   margin: number;
+  liquidationPx: number;
   perpValueUSD: number;
   status?: string;
 }

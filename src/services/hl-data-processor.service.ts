@@ -100,6 +100,7 @@ export const processHedgePositions = (
         perpPosition: Number(perpToken?.position?.szi ?? 0),
         leverage: Number(perpToken?.position?.leverage?.value ?? 1),
         margin: Number(perpToken?.position?.marginUsed ?? 0),
+        liquidationPx: Number(perpToken?.position?.liquidationPx ?? 0),
         status: spotToken.status,
       };
     })

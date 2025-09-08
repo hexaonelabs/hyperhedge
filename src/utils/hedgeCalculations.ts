@@ -19,6 +19,7 @@ export interface HedgePositionBreakdown {
   perpPosition: number;
   margin: number;
   leverage: number;
+  liquidationPrice: number;
 }
 
 /**
@@ -42,7 +43,12 @@ export const calculateHedgePositionFromAllocation = (
   // Calcul des balances
   const spotBalance = spotValue / currentPrice;
   const perpPosition = -(shortNotional / currentPrice); // Négatif car c'est un short
-  
+
+  // Prix de liquidation pour position short : prix auquel la marge est épuisée
+  // Formule: prix_liquidation = prix_entrée * (1 + (marge / notional))
+  // Pour un short: prix_liquidation = prix_entrée * (1 + (shortMargin / shortNotional))
+  const liquidationPrice = currentPrice * (1 + (shortMargin / shortNotional));
+
   return {
     totalValue,
     spotValue,
@@ -50,14 +56,15 @@ export const calculateHedgePositionFromAllocation = (
     spotBalance,
     perpPosition,
     margin: shortMargin,
-    leverage
+    leverage,
+    liquidationPrice,
   };
 };
 
 /**
  * Calculate current position value from spot and perp components
  */
-export const calculatePositionValue = (
+export const calculatePositionValueRequied = (
   spotBalance: number,
   perpPosition: number,
   perpValueUSD: number,
@@ -65,6 +72,15 @@ export const calculatePositionValue = (
 ): number => {
   const spotValue = spotBalance * (perpValueUSD / Math.abs(perpPosition) || 0);
   return margin + spotValue;
+};
+
+export const calculatePositionValue = (
+  spotBalance: number,
+  perpPosition: number,
+  perpValueUSD: number,
+): number => {
+  const spotValue = spotBalance * (perpValueUSD / Math.abs(perpPosition) || 0);
+  return perpValueUSD + spotValue;
 };
 
 /**
@@ -84,8 +100,9 @@ export const calculateHedgeStrategy = (
   // Taille de la position short en tokens
   const positionSize = shortNotional / currentPrice;
 
-  // Prix de liquidation approximatif (simplifié)
-  const liquidationPrice = currentPrice * (1 + (1 / leverage) * 0.9);
+  // Prix de liquidation pour position short
+  // Formule: prix_liquidation = prix_entrée * (1 + (marge / notional))
+  const liquidationPrice = currentPrice * (1 + (shortMargin / shortNotional));
 
   // Rendement annualisé basé sur le funding rate
   const annualizedReturn = fundingRate * 24 * 365 * 100;
@@ -121,6 +138,7 @@ export interface PositionAdjustment {
   perpAdjustment: number; // Positive = augmenter short, négatif = diminuer short
   targetSpotBalance: number;
   targetPerpPosition: number;
+  liquidationPrice: number;
   adjustmentType: 'increase' | 'decrease' | 'rebalance';
 }
 
@@ -131,7 +149,7 @@ export const calculatePositionAdjustment = (
   currentPrice: number
 ): PositionAdjustment => {
   // Calculer la valeur actuelle de la position
-  const currentValue = calculatePositionValue(
+  const currentValue = calculatePositionValueRequied(
     currentPosition.spotBalance,
     currentPosition.perpPosition,
     currentPosition.perpValueUSD,
@@ -163,6 +181,9 @@ export const calculatePositionAdjustment = (
   } else {
     adjustmentType = 'rebalance';
   }
+  
+  // Utiliser le prix de liquidation calculé dans targetBreakdown
+  const liquidationPrice = targetBreakdown.liquidationPrice;
 
   return {
     symbol: currentPosition.symbol,
@@ -170,6 +191,7 @@ export const calculatePositionAdjustment = (
     perpAdjustment,
     targetSpotBalance: targetBreakdown.spotBalance,
     targetPerpPosition: targetBreakdown.perpPosition,
-    adjustmentType
+    adjustmentType,
+    liquidationPrice,
   };
 };
