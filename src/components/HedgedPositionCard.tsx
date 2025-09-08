@@ -187,14 +187,19 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
         <div className="flex items-center justify-between text-sm">
           <span className="text-dark-400">Current price</span>
           <div className="flex flex-col items-end">
-            <span className="text-white font-medium">${position.perpValueUSD / Math.abs(position.perpPosition)}</span>
+            <span className="text-white font-medium">${(position.perpValueUSD / Math.abs(position.perpPosition)).toFixed(4)}</span>
           </div>
         </div>
 
-                <div className="flex items-center justify-between text-sm">
+        <div className="flex items-center justify-between text-sm">
           <span className="text-dark-400">Liquidation price</span>
           <div className="flex flex-col items-end">
-            <span className="text-white font-medium">${position.liquidationPx.toFixed(2)}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-white font-medium">${position.liquidationPx.toFixed(2)}</span>
+              <span className="text-xs text-dark-400">
+                ({(((position.liquidationPx - currentPrice) / currentPrice) * 100).toFixed(1)}%)
+              </span>
+            </div>
           </div>
         </div>
         
