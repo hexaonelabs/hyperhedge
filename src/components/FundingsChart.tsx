@@ -7,6 +7,8 @@ import {
   ResponsiveContainer,
   Area,
   AreaChart,
+  Line,
+  LineChart,
 } from "recharts";
 import { TrendingUp, DollarSign, BarChart3 } from "lucide-react";
 import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
@@ -48,7 +50,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
     fundingUSD: point.funding,
   }));
   // Calculate APY progression data based on real funding data
-  const apyData = (userFunding || [])?.map((point, index) => {
+  const apyData = (userFunding || []).map((point, index) => {
     let instantAPY = 0;
     
     if (index > 0) {
@@ -57,6 +59,8 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
     
     return {
       ...point,
+      index: index,
+      timestamp: point.time,
       date: new Date(point.time).toLocaleString("en-US", {
         year: "numeric",
         month: "2-digit",
@@ -98,7 +102,6 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
   const CustomAPYTooltip = ({
     active,
     payload,
-    label,
   }: {
     active?: boolean;
     payload?: Array<{ value: number; payload: UserFundingUpdate }>;
@@ -110,8 +113,8 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
       const fundingAmount = Number(dataPoint.delta.usdc || 0);
       return (
         <div className="bg-dark-800 border border-dark-600 rounded-lg p-3 shadow-lg">
-          <p className="text-dark-300 text-sm mb-1">{label}</p>
-          <p className="text-white font-semibold">
+          <p className="text-dark-300 text-sm mb-1">{new Date(dataPoint.time).toLocaleString()}</p>
+          <p className={`font-semibold ${value >= 0 ? 'text-primary-400' : 'text-red-400'}`}>
             {value >= 0 ? "+" : ""}
             {value.toFixed(2)}% APY
           </p>
@@ -314,7 +317,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
           </h4>
           {apyData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
+              <LineChart
                 data={apyData}
                 margin={{
                   top: 10,
@@ -323,53 +326,35 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
                   bottom: 10,
                 }}
               >
-                <defs>
-                  <linearGradient
-                    id="apyGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="5%"
-                      stopColor="#94a3b8"
-                      stopOpacity={0.3}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="#94a3b8"
-                      stopOpacity={0}
-                    />
-                  </linearGradient>
-                </defs>
                 <CartesianGrid
                   strokeDasharray="3 3"
                   stroke="#334155"
                   opacity={0.3}
                 />
                 <XAxis
-                  dataKey="date"
+                  dataKey="index"
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: "#94a3b8", fontSize: 12 }}
+                  tickFormatter={(value) => {
+                    const dataPoint = apyData[value];
+                    return dataPoint ? dataPoint.date : '';
+                  }}
                   dy={10}
                 />
                 <YAxis
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: "#94a3b8", fontSize: 12 }}
-                  //tickFormatter={(value) => `${value.toFixed(1)}%`}
+                  tickFormatter={(value) => `${value.toFixed(1)}%`}
                   dx={-10}
-                  domain={['dataMin', 'dataMax']}
                 />
                 <Tooltip content={<CustomAPYTooltip />} />
-                <Area
+                <Line
                   type="monotone"
                   dataKey="apy"
-                  stroke={"#7bfcdd"}
+                  stroke="#7bfcdd"
                   strokeWidth={2}
-                  fill="url(#apyGradient)"
                   dot={false}
                   activeDot={{
                     r: 4,
@@ -378,7 +363,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
                     fill: "#0f172a",
                   }}
                 />
-              </AreaChart>
+              </LineChart>
             </ResponsiveContainer>
           ) : (
             <div className="flex items-center justify-center h-full">
