@@ -3,7 +3,155 @@ import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import * as hl from "@nktkas/hyperliquid";
 import { arbitrum } from "viem/chains";
-import { HedgeCalculation, PositionAdjustment } from "../utils/hedgeCalculations";
+import {
+  HedgeCalculation,
+  PositionAdjustment,
+} from "../utils/hedgeCalculations";
+
+const transferUSDC = async (
+  hlClient: hl.ExchangeClient,
+  to: "spot" | "perp",
+  amount: number
+) => {
+  // Implement the transfer logic here
+  const result = await hlClient.usdClassTransfer({
+    amount: amount.toString(),
+    toPerp: to === "perp",
+  });
+  return result;
+};
+
+const checkAndTransferUSDC = async (
+  exchangeClient: hl.ExchangeClient,
+  balances: {
+    perpsUSDC: number;
+    spotUSDC: number;
+  },
+  requirements: {
+    requiredPerpsUSDC: number;
+    requiredSpotUSDC: number;
+  }
+) => {
+  const { perpsUSDC, spotUSDC } = balances;
+  const { requiredPerpsUSDC, requiredSpotUSDC } = requirements;
+
+  const totalRequired = requiredPerpsUSDC + requiredSpotUSDC;
+  const totalAvailable = perpsUSDC + spotUSDC;
+
+  // Check if user has enough USDC in total
+  if (totalAvailable < totalRequired) {
+    const deficit = totalRequired - totalAvailable;
+    throw new Error(
+      `Insufficient USDC balance. Total required: ${totalRequired.toFixed(
+        2
+      )} USDC, ` +
+        `Total available: ${totalAvailable.toFixed(2)} USDC, ` +
+        `Deficit: ${deficit.toFixed(2)} USDC`
+    );
+  }
+
+  // Calculate necessary transfers between markets
+  const transfers: Array<{
+    from: "spot" | "perp";
+    to: "spot" | "perp";
+    amount: number;
+    reason: string;
+  }> = [];
+
+  // Check perpetual market
+  if (perpsUSDC < requiredPerpsUSDC) {
+    const neededForPerps = requiredPerpsUSDC - perpsUSDC;
+    if (spotUSDC >= requiredSpotUSDC + neededForPerps) {
+      transfers.push({
+        from: "spot",
+        to: "perp",
+        amount: neededForPerps,
+        reason: `Transfer to perpetual market to cover short margin (${neededForPerps.toFixed(
+          2
+        )} USDC needed)`,
+      });
+    }
+  }
+
+  // Check spot market after potential transfer to perps
+  const adjustedSpotUSDC =
+    spotUSDC - (transfers.find((t) => t.from === "spot")?.amount || 0);
+  if (adjustedSpotUSDC < requiredSpotUSDC) {
+    const neededForSpot = requiredSpotUSDC - adjustedSpotUSDC;
+    const availableFromPerps =
+      perpsUSDC +
+      (transfers.find((t) => t.to === "perp")?.amount || 0) -
+      requiredPerpsUSDC;
+
+    if (availableFromPerps >= neededForSpot) {
+      transfers.push({
+        from: "perp",
+        to: "spot",
+        amount: neededForSpot,
+        reason: `Transfer to spot market for purchase (${neededForSpot.toFixed(
+          2
+        )} USDC needed)`,
+      });
+    }
+  }
+
+  // Execute transfers if necessary
+  if (transfers.length > 0) {
+    console.log("Required USDC transfers:", transfers);
+
+    for (const transfer of transfers) {
+      try {
+        console.log(
+          `Transferring ${transfer.amount.toFixed(2)} USDC from ${
+            transfer.from
+          } to ${transfer.to}: ${transfer.reason}`
+        );
+        await transferUSDC(exchangeClient, transfer.to, transfer.amount);
+      } catch (error) {
+        throw new Error(
+          `USDC transfer failed: ${
+            error instanceof Error ? error.message : "Unknown error"
+          }`
+        );
+      }
+    }
+  }
+
+  // Calculate final balances after transfers
+  const finalPerpsBalance =
+    perpsUSDC +
+    (transfers.find((t) => t.to === "perp")?.amount || 0) -
+    (transfers.find((t) => t.from === "perp")?.amount || 0);
+  const finalSpotBalance =
+    spotUSDC +
+    (transfers.find((t) => t.to === "spot")?.amount || 0) -
+    (transfers.find((t) => t.from === "spot")?.amount || 0);
+
+  // Final verification after transfers
+  if (finalPerpsBalance < requiredPerpsUSDC) {
+    throw new Error(
+      `Insufficient USDC on perpetual market after transfers. Required: ${requiredPerpsUSDC.toFixed(
+        2
+      )}, Available: ${finalPerpsBalance.toFixed(2)}`
+    );
+  }
+  if (finalSpotBalance < requiredSpotUSDC) {
+    throw new Error(
+      `Insufficient USDC on spot market after transfers. Required: ${requiredSpotUSDC.toFixed(
+        2
+      )}, Available: ${finalSpotBalance.toFixed(2)}`
+    );
+  }
+
+  return {
+    transfers,
+    finalBalances: {
+      perpsUSDC: finalPerpsBalance,
+      spotUSDC: finalSpotBalance,
+    },
+    transfersExecuted: transfers.length > 0,
+  };
+};
 
 const openHedgePosition = async (
   privateKey: `0x${string}`,
@@ -55,13 +203,21 @@ const openHedgePosition = async (
   );
   console.log("Spot market state:", spotClearinghouseState, spotUSDC);
 
-  // check if user has enough USDC in both markets
-  if (perpsUSDC < ops.calculations.shortMargin) {
-    throw new Error("Insufficient USDC in perpetual market");
-  }
-  if (spotUSDC < ops.calculations.spotAmount) {
-    throw new Error("Insufficient USDC in spot market");
-  }
+  const requiredPerpsUSDC = ops.calculations.shortMargin;
+  const requiredSpotUSDC = ops.calculations.spotAmount;
+
+  // Check and transfer USDC between markets if needed
+  const transferResult = await checkAndTransferUSDC(
+    exchangeClient,
+    { perpsUSDC, spotUSDC },
+    { requiredPerpsUSDC, requiredSpotUSDC }
+  );
+
+  console.log("USDC balance check completed:", {
+    transfersExecuted: transferResult.transfersExecuted,
+    transfers: transferResult.transfers,
+    finalBalances: transferResult.finalBalances,
+  });
 
   // find SPOT asset ID en utilisant les données du contexte
   const spotAssets = spotMetaAndAssetCtxs[0];
@@ -247,7 +403,81 @@ const updateHedgePosition = async (
     spotMetaAndAssetCtxs,
     metaAndAssetCtxs,
     allMids,
+    spotClearinghouseState,
+    clearinghouseState,
   } = contextData;
+
+  // Get current USDC balances
+  const perpsUSDC = Number(clearinghouseState.withdrawable);
+  const spotUSDC = Number(
+    spotClearinghouseState.balances.find((b) => b.coin === "USDC")?.total || 0
+  );
+
+  // Calculate total USDC requirements for all adjustments
+  let totalRequiredSpotUSDC = 0;
+  let totalRequiredPerpsUSDC = 0;
+
+  // Pre-calculate USDC requirements for all adjustments
+  for (const adjustment of ops.adjustments) {
+    // For spot adjustments (buying requires USDC)
+    if (adjustment.spotAdjustment > 0) {
+      // Need to estimate USDC required for spot purchases
+      // This is an approximation - in practice you'd need the current price
+      const spotAssets = spotMetaAndAssetCtxs[0];
+      const spotToken = spotAssets.tokens.find((token) =>
+        token.name.includes(adjustment.symbol)
+      );
+
+      if (spotToken) {
+        const universeItem = spotAssets.universe.find(
+          (item) => item.tokens[0] === spotToken.index
+        );
+        if (universeItem) {
+          const mid =
+            allMids[
+              spotToken.name === "PURR" ? `PURR/USDC` : `@${universeItem.index}`
+            ];
+          if (mid) {
+            totalRequiredSpotUSDC += adjustment.spotAdjustment * Number(mid);
+          }
+        }
+      }
+    }
+
+    // For perp adjustments (increasing short position requires margin)
+    if (adjustment.perpAdjustment < 0) {
+      // This is an approximation - you'd need to calculate actual margin requirements
+      const perpAssets = metaAndAssetCtxs;
+      const perpAssetIndex = perpAssets[0].universe.findIndex((a) =>
+        a.name.includes(adjustment.symbol)
+      );
+
+      if (perpAssetIndex !== -1) {
+        const markPx = Number(perpAssets[1][perpAssetIndex].markPx);
+        const additionalMargin =
+          Math.abs(adjustment.perpAdjustment) * markPx * 0.1; // Assuming 10x leverage
+        totalRequiredPerpsUSDC += additionalMargin;
+      }
+    }
+  }
+
+  // Check and transfer USDC if needed for adjustments
+  if (totalRequiredSpotUSDC > 0 || totalRequiredPerpsUSDC > 0) {
+    const transferResult = await checkAndTransferUSDC(
+      exchangeClient,
+      { perpsUSDC, spotUSDC },
+      {
+        requiredPerpsUSDC: totalRequiredPerpsUSDC,
+        requiredSpotUSDC: totalRequiredSpotUSDC,
+      }
+    );
+
+    console.log("USDC balance check for adjustments completed:", {
+      transfersExecuted: transferResult.transfersExecuted,
+      transfers: transferResult.transfers,
+      finalBalances: transferResult.finalBalances,
+    });
+  }
 
   const results = [];
 
@@ -259,7 +489,7 @@ const updateHedgePosition = async (
       const spotAssetIndex = spotAssets.tokens.findIndex((a) =>
         a.name.includes(adjustment.symbol)
       );
-      
+
       if (spotAssetIndex === -1) {
         throw new Error(`Spot token not found for ${adjustment.symbol}`);
       }
@@ -277,7 +507,13 @@ const updateHedgePosition = async (
               allMids[
                 token.name === "PURR" ? `PURR/USDC` : `@${universeItem.index}`
               ];
-            return { ...universeItem, name: internalName, index, mid, szDecimals };
+            return {
+              ...universeItem,
+              name: internalName,
+              index,
+              mid,
+              szDecimals,
+            };
           }
         })
         .filter(Boolean);
@@ -287,16 +523,18 @@ const updateHedgePosition = async (
           t!.name.split("-")[0] === adjustment.symbol ||
           t!.name.split("-")[0] === `U${adjustment.symbol}`
       );
-      
+
       if (!spotToken) {
-        throw new Error(`Spot token context not found for ${adjustment.symbol}`);
+        throw new Error(
+          `Spot token context not found for ${adjustment.symbol}`
+        );
       }
 
       const perpsAssets = metaAndAssetCtxs;
       const perpsAssetIndex = perpsAssets[0].universe.findIndex((a) =>
         a.name.includes(adjustment.symbol)
       );
-      
+
       if (perpsAssetIndex === -1) {
         throw new Error(`Perpetual token not found for ${adjustment.symbol}`);
       }
@@ -306,7 +544,7 @@ const updateHedgePosition = async (
         midPx: perpsAssets[1][perpsAssetIndex].midPx,
         markPx: perpsAssets[1][perpsAssetIndex].markPx,
       };
-      
+
       const decimals = perpToken.markPx.toString().split(".")[1]?.length || 0;
 
       const removeTrailingZeros = (value: number | string): string => {
@@ -320,7 +558,8 @@ const updateHedgePosition = async (
       const orders = [];
 
       // Ajuster la position spot si nécessaire
-      if (Math.abs(adjustment.spotAdjustment) > 0.001) { // Seuil minimum
+      if (Math.abs(adjustment.spotAdjustment) > 0.001) {
+        // Seuil minimum
         const isSpotBuy = adjustment.spotAdjustment > 0;
         const spotSize = Math.abs(adjustment.spotAdjustment);
         const spotPx = Number(spotToken.mid) * (isSpotBuy ? 1.05 : 0.95); // Slippage
@@ -346,18 +585,20 @@ const updateHedgePosition = async (
         });
 
         orders.push({
-          type: 'spot',
-          action: isSpotBuy ? 'buy' : 'sell',
+          type: "spot",
+          action: isSpotBuy ? "buy" : "sell",
           size: spotSize,
-          response: spotOrder
+          response: spotOrder,
         });
       }
 
       // Ajuster la position perpétuelle si nécessaire
-      if (Math.abs(adjustment.perpAdjustment) > 0.001) { // Seuil minimum
+      if (Math.abs(adjustment.perpAdjustment) > 0.001) {
+        // Seuil minimum
         const isPerpIncrease = adjustment.perpAdjustment < 0; // Plus négatif = augmenter le short
         const perpSize = Math.abs(adjustment.perpAdjustment);
-        const perpPx = Number(perpToken.markPx) * (isPerpIncrease ? 0.95 : 1.05); // Slippage
+        const perpPx =
+          Number(perpToken.markPx) * (isPerpIncrease ? 0.95 : 1.05); // Slippage
 
         const perpsOrder = await exchangeClient.order({
           orders: [
@@ -380,10 +621,10 @@ const updateHedgePosition = async (
         });
 
         orders.push({
-          type: 'perp',
-          action: isPerpIncrease ? 'increase_short' : 'decrease_short',
+          type: "perp",
+          action: isPerpIncrease ? "increase_short" : "decrease_short",
           size: perpSize,
-          response: perpsOrder
+          response: perpsOrder,
         });
       }
 
@@ -391,9 +632,8 @@ const updateHedgePosition = async (
         symbol: adjustment.symbol,
         adjustmentType: adjustment.adjustmentType,
         orders,
-        success: true
+        success: true,
       });
-
     } catch (error) {
       console.error(`Error updating position for ${adjustment.symbol}:`, error);
       results.push({
@@ -401,7 +641,7 @@ const updateHedgePosition = async (
         adjustmentType: adjustment.adjustmentType,
         orders: [],
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }
@@ -409,7 +649,7 @@ const updateHedgePosition = async (
   return {
     results,
     totalAdjustments: ops.adjustments.length,
-    successfulAdjustments: results.filter(r => r.success).length
+    successfulAdjustments: results.filter((r) => r.success).length,
   };
 };
 
