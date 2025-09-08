@@ -9,6 +9,7 @@ import {
   AreaChart,
   Line,
   LineChart,
+  ReferenceLine,
 } from "recharts";
 import { TrendingUp, DollarSign, BarChart3 } from "lucide-react";
 import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
@@ -72,7 +73,6 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
       apy: instantAPY,
     };
   });
-// console.log('>>>>>', {apyData, userFunding});
   // Custom tooltip for funding chart
   const CustomFundingTooltip = ({
     active,
@@ -137,7 +137,6 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
   const validAPYValues = apyData.filter(point => point.apy !== 0).map(point => point.apy);
   const maxAPY = validAPYValues.length > 0 ? Math.max(...validAPYValues) : 0;
 
-  console.log('>>>' , apyData)
   return (
     <div
       className={`bg-dark-900 border border-dark-800 rounded-xl p-6 ${className}`}
@@ -350,6 +349,13 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
                   dx={-10}
                 />
                 <Tooltip content={<CustomAPYTooltip />} />
+                <ReferenceLine 
+                  y={0} 
+                  stroke="#64748b" 
+                  strokeDasharray="5 5" 
+                  strokeWidth={1}
+                  opacity={0.7}
+                />
                 <Line
                   type="monotone"
                   dataKey="apy"
