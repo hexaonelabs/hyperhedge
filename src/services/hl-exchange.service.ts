@@ -185,6 +185,13 @@ const openHedgePosition = async (
     isTestnet: ops.isTestnet || false,
     defaultVaultAddress: ops?.subAccountAddress || undefined,
   });
+  try {
+    await exchangeClient.setReferrer({
+      code: import.meta.env.VITE_HL_BUILDERCODE,
+    });
+  } catch (error) {
+    console.error("Error setting referrer:", error);
+  }
 
   // Utiliser les données du contexte
   const {
@@ -303,6 +310,10 @@ const openHedgePosition = async (
       },
     ],
     grouping: "na",
+    // builder: {
+    //   b: import.meta.env.VITE_HL_BUILDERADRESS,
+    //   f: 1
+    // }
   });
 
   const orderStatus = spotOrder.response.data?.statuses[0];
@@ -398,7 +409,13 @@ const updateHedgePosition = async (
     isTestnet: ops.isTestnet || false,
     defaultVaultAddress: ops?.subAccountAddress || undefined,
   });
-
+  try {
+    await exchangeClient.setReferrer({
+      code: import.meta.env.VITE_HL_BUILDERCODE,
+    });
+  } catch (error) {
+    console.error("Error setting referrer:", error);
+  }
   const {
     spotMetaAndAssetCtxs,
     metaAndAssetCtxs,
