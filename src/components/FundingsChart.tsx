@@ -136,6 +136,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
   // Calculate APY statistics
   const validAPYValues = apyData.filter(point => point.apy !== 0).map(point => point.apy);
   const maxAPY = validAPYValues.length > 0 ? Math.max(...validAPYValues) : 0;
+  const minAPY = validAPYValues.length > 0 ? Math.min(...validAPYValues) : 0;
 
   return (
     <div
@@ -188,14 +189,13 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
         </div>
 
         <div className="bg-dark-800 border border-dark-700 rounded-lg p-4">
-          <p className="text-dark-400 text-sm mb-1">Peak APY</p>
+          <p className="text-dark-400 text-sm mb-1">APY Range</p>
           <p
             className={`text-lg font-bold ${
-              maxAPY >= 0 ? "text-primary-400" : "text-red-400"
+              maxAPY >= 0 ? "text-white" : "text-red-400"
             }`}
           >
-            {maxAPY >= 0 ? "+" : ""}
-            {maxAPY.toFixed(1)}%
+            {minAPY.toFixed(1)}% → {maxAPY.toFixed(1)}%
           </p>
         </div>
 
@@ -347,6 +347,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
                   tick={{ fill: "#94a3b8", fontSize: 12 }}
                   tickFormatter={(value) => `${value.toFixed(1)}%`}
                   dx={-10}
+                  domain={[minAPY, maxAPY]}
                 />
                 <Tooltip content={<CustomAPYTooltip />} />
                 <ReferenceLine 

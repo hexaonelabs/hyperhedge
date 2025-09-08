@@ -5,7 +5,9 @@ import {
   X,
   AlertCircle,
   Activity,
+  Plus,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import HedgedPositionCard from "./HedgedPositionCard";
 import UnhedgedPositionCard from "./UnhedgedPositionCard";
 import USDCReservesCard from "./USDCReservesCard";
@@ -46,6 +48,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   isWatchMode,
   onUnsavedChanges,
 }) => {
+  const navigate = useNavigate();
   // State pour gérer les changements d'allocation
   const [allocationChanges, setAllocationChanges] = useState<Record<string, number>>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -458,12 +461,12 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                 : "bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border-orange-500/20"
             } border rounded-xl p-4`}
           >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex items-start gap-3">
                 <div
                   className={`p-2 ${
                     isOverAllocated ? "bg-red-500/20" : "bg-orange-500/20"
-                  } rounded-lg`}
+                  } rounded-lg flex-shrink-0`}
                 >
                   <AlertCircle
                     className={`w-5 h-5 ${
@@ -471,8 +474,8 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                     }`}
                   />
                 </div>
-                <div>
-                  <h4 className="text-white font-semibold">
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-white font-semibold mb-1">
                     {isOverAllocated
                       ? "Invalid Allocation"
                       : "Strategy Changes Detected"}
@@ -490,23 +493,23 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 lg:flex-shrink-0">
                 <button
                   onClick={handleCancelChanges}
                   disabled={isSubmitting}
-                  className={`px-4 py-2 border border-orange-500/30 hover:border-orange-500/50 rounded-lg transition-colors duration-200 flex items-center gap-2 ${
+                  className={`px-4 py-2 border border-orange-500/30 hover:border-orange-500/50 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
                     isSubmitting 
                       ? "text-gray-400 border-gray-500/30 cursor-not-allowed"
                       : "text-orange-400 hover:text-orange-300"
                   }`}
                 >
                   <X className="w-4 h-4" />
-                  Cancel
+                  <span className="whitespace-nowrap">Cancel</span>
                 </button>
                 <button
                   onClick={handleUpdateStrategy}
                   disabled={isOverAllocated || isSubmitting}
-                  className={`px-4 py-2 font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 ${
+                  className={`px-4 py-2 font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${
                     isOverAllocated || isSubmitting
                       ? "bg-gray-600 text-gray-400 cursor-not-allowed"
                       : "bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
@@ -515,12 +518,12 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                   {isSubmitting ? (
                     <>
                       <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                      Processing...
+                      <span className="whitespace-nowrap">Processing...</span>
                     </>
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      Update Strategy
+                      <span className="whitespace-nowrap">Update Strategy</span>
                     </>
                   )}
                 </button>
@@ -549,6 +552,18 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                     disabled={isWatchMode}
                   />
                 ))}
+              </div>
+              
+              {/* Add Position Button */}
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={() => navigate('/markets')}
+                  disabled={isWatchMode}
+                  className="flex items-center gap-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 text-black font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Position
+                </button>
               </div>
             </div>
           )}

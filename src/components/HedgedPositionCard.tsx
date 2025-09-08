@@ -160,7 +160,7 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
                 {initialAllocation.toFixed(0)}% → 
               </span>
             )}
-            <span className={`font-medium ${hasChanged ? 'text-orange-400' : 'text-white'}`}>
+            <span className={`text-2xl font-medium ${hasChanged ? 'text-orange-400' : 'text-primary-500'}`}>
               {Math.round(sliderValue)}%
             </span>
           </div>
