@@ -103,24 +103,16 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${positionType.bgColor} ${positionType.color} flex-shrink-0`}>
                   {positionType.label}
                 </span>
+                {isHedgeSelected && (
+                  <span className="px-2 py-1 rounded-full text-xs font-medium bg-primary-500/20 text-primary-400 flex-shrink-0">
+                    HEDGE SELECTED
+                  </span>
+                )}
               </div>
               <span className="text-sm text-dark-400">Unhedged Position</span>
             </div>
           </div>
           
-          {/* Hedge Checkbox - Desktop */}
-          <div className="flex items-center gap-3 mx-4">
-            <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-              <input
-                type="checkbox"
-                checked={isHedgeSelected}
-                onChange={handleHedgeToggle}
-                disabled={disabled}
-                className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-500 focus:ring-primary-500 focus:ring-2 disabled:opacity-50"
-              />
-              <span className="text-sm text-dark-400 whitespace-nowrap">Apply Hedge</span>
-            </label>
-          </div>
           
           {/* Allocation Slider - Desktop */}
           <div className="flex items-center gap-3 min-w-[280px] mx-6">
@@ -197,22 +189,8 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
             </div>
           </div>
 
-          {/* Second Row: Hedge Checkbox and Allocation Slider - Mobile/Tablet */}
+          {/* Second Row: Allocation Slider - Mobile/Tablet */}
           <div className="space-y-3">
-            {/* Hedge Checkbox */}
-            <div className="flex items-center justify-center">
-              <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                <input
-                  type="checkbox"
-                  checked={isHedgeSelected}
-                  onChange={handleHedgeToggle}
-                  disabled={disabled}
-                  className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-500 focus:ring-primary-500 focus:ring-2 disabled:opacity-50"
-                />
-                <span className="text-sm text-dark-400">Apply Hedge to this position</span>
-              </label>
-            </div>
-            
             {/* Allocation Slider */}
             <div className="flex items-center gap-3">
               <span className="text-sm text-dark-400 whitespace-nowrap">Allocation:</span>
@@ -273,6 +251,69 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
                   </div>
                 </>
               )}
+            </div>
+            
+            {/* Hedge Configuration Section */}
+            <div className="bg-gradient-to-r from-primary-500/5 to-blue-500/5 border border-primary-500/20 rounded-xl p-4 mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-primary-500/20 rounded-lg">
+                    <AlertTriangle className="w-4 h-4 text-primary-400" />
+                  </div>
+                  <h4 className="text-primary-400 font-semibold text-sm">Risk Management</h4>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <p className="text-dark-300 text-sm leading-relaxed">
+                  Apply hedge protection to this position to reduce market exposure while earning funding fees.
+                </p>
+                
+                <label className="flex items-start gap-3 cursor-pointer group" onClick={(e) => e.stopPropagation()}>
+                  <div className="relative flex-shrink-0 mt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isHedgeSelected}
+                      onChange={handleHedgeToggle}
+                      disabled={disabled}
+                      className="sr-only"
+                    />
+                    <div className={`w-5 h-5 rounded border-2 transition-all duration-200 flex items-center justify-center ${
+                      isHedgeSelected 
+                        ? 'bg-primary-500 border-primary-500' 
+                        : 'bg-dark-700 border-dark-500 group-hover:border-primary-500/50'
+                    } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                      {isHedgeSelected && (
+                        <svg className="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <span className={`font-medium transition-colors duration-200 ${
+                      isHedgeSelected ? 'text-primary-400' : 'text-white group-hover:text-primary-400'
+                    }`}>
+                      Apply Hedge Protection
+                    </span>
+                    <p className="text-dark-400 text-xs mt-1">
+                      Automatically create a hedged position to minimize directional risk
+                    </p>
+                  </div>
+                </label>
+                
+                {isHedgeSelected && (
+                  <div className="bg-primary-500/10 border border-primary-500/30 rounded-lg p-3 mt-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 bg-primary-400 rounded-full animate-pulse"></div>
+                      <span className="text-primary-400 text-sm font-medium">Hedge Protection Active</span>
+                    </div>
+                    <p className="text-primary-300 text-xs">
+                      This position will be automatically hedged with a short perpetual position.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
             
             {/* Hedge Selection Indicator */}

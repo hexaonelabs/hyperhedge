@@ -9,6 +9,7 @@ import {
   PositionAdjustment,
   calculatePositionAdjustment,
   getCurrentPrice,
+  calculateSpotPositionAdjustment,
 } from "../utils/hedgeCalculations";
 import { updateHedgePosition } from "../services/hl-exchange.service";
 import { useWallet } from "../hooks/useWallet";
@@ -291,12 +292,49 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
       unhedgedPositions.forEach((position) => {
         const newAllocation = allocationChanges[position.symbol];
         if (newAllocation !== undefined) {
-          // Pour les positions non hedgées, il faudrait les convertir en positions hedgées
-          // ou simplement ajuster leur taille
-          // Cette logique dépend de votre stratégie produit
-          console.log(
-            `Unhedged position adjustment needed for ${position.symbol}: ${newAllocation}%`
+          const currentPrice = getCurrentPrice(
+            position.valueUSD,
+            position.balance
           );
+          // is unhedged position toggle to be hedged from `hedgeSelections`
+          const isUnhedgedToHedged = hedgeSelections[position.symbol] === true;
+          if (isUnhedgedToHedged) {
+            const adjustment = calculatePositionAdjustment(
+              {
+                leverage: 1,
+                liquidationPx: 0,
+                margin: 0,
+                perpPosition: 0,
+                perpValueUSD: 0,
+                spotBalance: position.balance,
+                symbol: position.symbol,
+                status: "",
+              },
+              newAllocation,
+              totalAccountValueUSD,
+              currentPrice
+            );
+            adjustments.push(adjustment);
+          } else {
+            // Pour les positions spot sans hedge, utiliser la nouvelle fonction
+            const spotAdjustment = calculateSpotPositionAdjustment(
+              position.symbol,
+              position.balance,
+              position.valueUSD,
+              newAllocation,
+              totalAccountValueUSD,
+              currentPrice
+            );
+            // Convertir en PositionAdjustment pour compatibilité
+            const adjustment: PositionAdjustment = {
+              ...spotAdjustment,
+              adjustmentType: spotAdjustment.adjustmentType as 'increase' | 'decrease' | 'rebalance',
+              perpAdjustment: 0, // Pas d'ajustement perp pour position spot pure
+              targetPerpPosition: 0,
+              liquidationPrice: 0, // Pas de liquidation pour position spot
+            };
+            adjustments.push(adjustment);
+          }
         }
       });
 
@@ -304,7 +342,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
         showError("No adjustments needed");
         return;
       }
-
+      console.log('>>', adjustments);
       // Décrypter la clé privée
       const signature = await signStringMessage("HyperHedge-Config-Encrypt");
       const apiWalletPrivateKey = await SecureKeyManager.decrypt(

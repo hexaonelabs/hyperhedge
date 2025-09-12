@@ -142,6 +142,57 @@ export interface PositionAdjustment {
   adjustmentType: 'increase' | 'decrease' | 'rebalance';
 }
 
+/**
+ * Calculate spot position adjustment without perp hedge for unhedged positions
+ */
+export interface SpotPositionAdjustment {
+  symbol: string;
+  spotAdjustment: number; // Positive = acheter, négatif = vendre
+  targetSpotBalance: number;
+  currentSpotBalance: number;
+  adjustmentType: 'increase' | 'decrease' | 'maintain';
+  targetValueUSD: number;
+  currentValueUSD: number;
+}
+
+export const calculateSpotPositionAdjustment = (
+  symbol: string,
+  currentSpotBalance: number,
+  currentValueUSD: number,
+  targetAllocationPercent: number,
+  totalPortfolioValue: number,
+  currentPrice: number
+): SpotPositionAdjustment => {
+  // Calculer la valeur cible en USD
+  const targetValueUSD = (targetAllocationPercent / 100) * totalPortfolioValue;
+  
+  // Calculer la balance spot cible
+  const targetSpotBalance = targetValueUSD / currentPrice;
+  
+  // Calculer l'ajustement nécessaire
+  const spotAdjustment = targetSpotBalance - currentSpotBalance;
+  
+  // Déterminer le type d'ajustement
+  let adjustmentType: 'increase' | 'decrease' | 'maintain';
+  if (targetValueUSD > currentValueUSD * 1.05) {
+    adjustmentType = 'increase';
+  } else if (targetValueUSD < currentValueUSD * 0.95) {
+    adjustmentType = 'decrease';
+  } else {
+    adjustmentType = 'maintain';
+  }
+
+  return {
+    symbol,
+    spotAdjustment,
+    targetSpotBalance,
+    currentSpotBalance,
+    adjustmentType,
+    targetValueUSD,
+    currentValueUSD,
+  };
+};
+
 export const calculatePositionAdjustment = (
   currentPosition: HedgePositionSummary,
   targetAllocationPercent: number,
