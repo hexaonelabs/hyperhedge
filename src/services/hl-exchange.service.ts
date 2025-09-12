@@ -14,8 +14,11 @@ const transferUSDC = async (
   amount: number
 ) => {
   // Implement the transfer logic here
+  const amountFormated = hlClient.defaultVaultAddress
+    ? `${amount.toFixed(2)} subaccount:${hlClient.defaultVaultAddress}`
+    : amount.toFixed(2);
   const result = await hlClient.usdClassTransfer({
-    amount: amount.toString(),
+    amount: amountFormated,
     toPerp: to === "perp",
   });
   return result;
