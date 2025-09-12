@@ -326,9 +326,9 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
         // Préparer les données pour la notification de succès
         const orders = successfulAdjustments.flatMap((adj) =>
           adj.orders.map((order) => {
-            const orderStatus = order.response.response.data
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ?.statuses?.[0] as any;
+            const orderStatus =
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              order.response.response.data?.statuses?.[0] as any;
             return {
               oid:
                 orderStatus?.filled?.oid || orderStatus?.resting?.oid || "N/A",
@@ -478,7 +478,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
               <h3 className="text-xl font-semibold text-white mb-4">
                 Hedged Positions
               </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-3">
                 {hedgedPositions.map((position, index) => (
                   <HedgedPositionCard
                     key={`hedged-${position.symbol}-${index}`}
@@ -492,104 +492,6 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                   />
                 ))}
               </div>
-
-              {/* Strategy Changes Notification - Only show if not in watch mode */}
-              {hasUnsavedChanges && !isWatchMode && (
-                <div
-                  className={`mt-6 ${
-                    isOverAllocated
-                      ? "bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/20"
-                      : "bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border-orange-500/20"
-                  } border rounded-xl p-4`}
-                >
-                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`p-2 ${
-                          isOverAllocated ? "bg-red-500/20" : "bg-orange-500/20"
-                        } rounded-lg flex-shrink-0`}
-                      >
-                        <AlertCircle
-                          className={`w-5 h-5 ${
-                            isOverAllocated ? "text-red-400" : "text-orange-400"
-                          }`}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-white font-semibold mb-1">
-                          {isOverAllocated
-                            ? "Invalid Allocation"
-                            : "Strategy Changes Detected"}
-                        </h4>
-                        {isOverAllocated ? (
-                          <p className="text-red-200 text-sm">
-                            Positions allocation ({totalAllocation.toFixed(1)}%)
-                            exceeds 100%. Please adjust your positions.
-                          </p>
-                        ) : (
-                          <p className="text-orange-200 text-sm">
-                            You have modified your portfolio allocation. Review
-                            and apply changes below.
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 lg:flex-shrink-0">
-                      <button
-                        onClick={handleCancelChanges}
-                        disabled={isSubmitting}
-                        className={`px-4 py-2 border border-orange-500/30 hover:border-orange-500/50 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
-                          isSubmitting
-                            ? "text-gray-400 border-gray-500/30 cursor-not-allowed"
-                            : "text-orange-400 hover:text-orange-300"
-                        }`}
-                      >
-                        <X className="w-4 h-4" />
-                        <span className="whitespace-nowrap">Cancel</span>
-                      </button>
-                      <button
-                        onClick={handleUpdateStrategy}
-                        disabled={isOverAllocated || isSubmitting}
-                        className={`px-4 py-2 font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${
-                          isOverAllocated || isSubmitting
-                            ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                            : "bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
-                        }`}
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                            <span className="whitespace-nowrap">
-                              Processing...
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-4 h-4" />
-                            <span className="whitespace-nowrap">
-                              Update Strategy
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Add Position Button */}
-              {!hasUnsavedChanges && (
-                <div className="mt-6 flex justify-center">
-                  <button
-                    onClick={() => navigate("/markets")}
-                    disabled={isWatchMode}
-                    className="flex items-center gap-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 text-black font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
-                  >
-                    <Plus className="w-5 h-5" />
-                    Add Position
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -600,7 +502,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
               <h3 className="text-xl font-semibold text-white mb-4">
                 Unhedged Positions
               </h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="space-y-3">
                 {unhedgedPositions.map((position, index) => (
                   <UnhedgedPositionCard
                     key={`unhedged-${position.symbol}-${index}`}
@@ -640,6 +542,100 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
             <p className="text-dark-500 mb-6">
               You don't have any open positions at the moment.
             </p>
+          </div>
+        )}
+
+        {/* Strategy Changes Notification - Only show if not in watch mode */}
+        {hasUnsavedChanges && !isWatchMode && (
+          <div
+            className={`mt-6 ${
+              isOverAllocated
+                ? "bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/20"
+                : "bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border-orange-500/20"
+            } border rounded-xl p-4`}
+          >
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <div
+                  className={`p-2 ${
+                    isOverAllocated ? "bg-red-500/20" : "bg-orange-500/20"
+                  } rounded-lg flex-shrink-0`}
+                >
+                  <AlertCircle
+                    className={`w-5 h-5 ${
+                      isOverAllocated ? "text-red-400" : "text-orange-400"
+                    }`}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-white font-semibold mb-1">
+                    {isOverAllocated
+                      ? "Invalid Allocation"
+                      : "Strategy Changes Detected"}
+                  </h4>
+                  {isOverAllocated ? (
+                    <p className="text-red-200 text-sm">
+                      Positions allocation ({totalAllocation.toFixed(1)}%)
+                      exceeds 100%. Please adjust your positions.
+                    </p>
+                  ) : (
+                    <p className="text-orange-200 text-sm">
+                      You have modified your portfolio allocation. Review and
+                      apply changes below.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 lg:flex-shrink-0">
+                <button
+                  onClick={handleCancelChanges}
+                  disabled={isSubmitting}
+                  className={`px-4 py-2 border border-orange-500/30 hover:border-orange-500/50 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+                    isSubmitting
+                      ? "text-gray-400 border-gray-500/30 cursor-not-allowed"
+                      : "text-orange-400 hover:text-orange-300"
+                  }`}
+                >
+                  <X className="w-4 h-4" />
+                  <span className="whitespace-nowrap">Cancel</span>
+                </button>
+                <button
+                  onClick={handleUpdateStrategy}
+                  disabled={isOverAllocated || isSubmitting}
+                  className={`px-4 py-2 font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${
+                    isOverAllocated || isSubmitting
+                      ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                      : "bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
+                  }`}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                      <span className="whitespace-nowrap">Processing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span className="whitespace-nowrap">Update Strategy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Position Button */}
+        {!hasUnsavedChanges && (
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={() => navigate("/markets")}
+              disabled={isWatchMode}
+              className="flex items-center gap-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 text-black font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+            >
+              <Plus className="w-5 h-5" />
+              Add Position
+            </button>
           </div>
         )}
       </div>
