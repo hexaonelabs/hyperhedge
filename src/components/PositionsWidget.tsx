@@ -50,6 +50,9 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   const [allocationChanges, setAllocationChanges] = useState<
     Record<string, number>
   >({});
+  const [hedgeSelections, setHedgeSelections] = useState<
+    Record<string, boolean>
+  >({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [resetTrigger, setResetTrigger] = useState(0);
   const [isResetting, setIsResetting] = useState(false);
@@ -166,9 +169,32 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
     const newChanges = { ...allocationChanges, [symbol]: percentage };
     setAllocationChanges(newChanges);
 
-    // Vérifier si une allocation diffère de l'initiale
-    const hasChanges = Math.abs(percentage - initialAllocation) > 1; // Seuil de 1%
-    setHasUnsavedChanges(hasChanges);
+    // Vérifier si une allocation diffère de l'initiale ou si des hedges sont sélectionnés
+    const hasAllocationChanges = Math.abs(percentage - initialAllocation) > 1; // Seuil de 1%
+    const hasHedgeChanges = Object.values(hedgeSelections).some(selected => selected);
+    setHasUnsavedChanges(hasAllocationChanges || hasHedgeChanges);
+  };
+
+  // Gérer la sélection de hedge
+  const handleHedgeToggle = (symbol: string, shouldHedge: boolean) => {
+    if (isResetting) return;
+
+    console.log(`Hedge toggle for ${symbol}: ${shouldHedge}`);
+
+    // Mettre à jour les sélections de hedge
+    const newSelections = { ...hedgeSelections, [symbol]: shouldHedge };
+    setHedgeSelections(newSelections);
+
+    // Vérifier s'il y a des changements non sauvegardés
+    const hasHedgeChanges = Object.values(newSelections).some(selected => selected);
+    const hasAllocationChanges = Object.keys(allocationChanges).some(sym => {
+      const position = hedgedPositions.find(p => p.symbol === sym) || unhedgedPositions.find(p => p.symbol === sym);
+      const positionValue = position ? getPositionValue(position) : 0;
+      const initialAllocation = totalAccountValueUSD > 0 ? (positionValue / totalAccountValueUSD) * 100 : 0;
+      return Math.abs(allocationChanges[sym] - initialAllocation) > 1;
+    });
+    
+    setHasUnsavedChanges(hasAllocationChanges || hasHedgeChanges);
   };
 
   // Calculer l'allocation totale pour les positions uniquement (excluant les réserves USDC)
@@ -389,6 +415,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   const handleCancelChanges = () => {
     setIsResetting(true);
     setAllocationChanges({});
+    setHedgeSelections({});
     setHasUnsavedChanges(false);
     setResetTrigger((prev) => prev + 1);
 
@@ -512,10 +539,12 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                     type={position.type}
                     totalPortfolioValue={totalAccountValueUSD}
                     onAllocationChange={handleAllocationChange}
+                    onHedgeToggle={handleHedgeToggle}
                     currentAllocation={allocationChanges[position.symbol]}
                     resetTrigger={resetTrigger}
                     totalAllocation={totalAllocation}
                     disabled={isWatchMode}
+                    isHedgeSelected={hedgeSelections[position.symbol] || false}
                     perpPosition={
                       "perpPosition" in position
                         ? position.perpPosition

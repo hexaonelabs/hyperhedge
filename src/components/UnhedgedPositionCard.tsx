@@ -8,6 +8,7 @@ interface UnhedgedPositionCardProps {
   type: "spot" | "perp";
   totalPortfolioValue: number;
   onAllocationChange: (symbol: string, percentage: number) => void;
+  onHedgeToggle?: (symbol: string, shouldHedge: boolean) => void;
   currentAllocation?: number;
   resetTrigger?: number;
   totalAllocation?: number;
@@ -16,6 +17,7 @@ interface UnhedgedPositionCardProps {
   leverage?: number;
   margin?: number;
   disabled?: boolean;
+  isHedgeSelected?: boolean;
 }
 
 const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
@@ -25,6 +27,7 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
   type,
   totalPortfolioValue,
   onAllocationChange,
+  onHedgeToggle,
   currentAllocation,
   resetTrigger,
   totalAllocation,
@@ -33,6 +36,7 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
   leverage,
   margin,
   disabled = false,
+  isHedgeSelected = false,
 }) => {
   const initialAllocation = totalPortfolioValue > 0 ? (valueUSD / totalPortfolioValue) * 100 : 0;
   const [sliderValue, setSliderValue] = useState(currentAllocation !== undefined ? currentAllocation : initialAllocation);
@@ -60,6 +64,13 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
     onAllocationChange(symbol, newValue);
   };
 
+  const handleHedgeToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation(); // Empêcher l'ouverture/fermeture de l'accordéon
+    if (onHedgeToggle) {
+      onHedgeToggle(symbol, e.target.checked);
+    }
+  };
+
   // Check if allocation has changed
   const hasChanged = Math.abs(sliderValue - initialAllocation) > 1;
   const isOverAllocated = totalAllocation !== undefined && totalAllocation > 100;
@@ -74,7 +85,7 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
   const positionType = getPositionType();
 
   return (
-    <div className={`bg-dark-800 border ${hasChanged ? 'border-orange-500/50 shadow-orange-500/20 shadow-lg' : 'border-dark-700'} rounded-xl transition-all duration-300 ${className}`}>
+    <div className={`bg-dark-800 border ${hasChanged ? 'border-orange-500/50 shadow-orange-500/20 shadow-lg' : isHedgeSelected ? 'border-primary-500/50 shadow-primary-500/20 shadow-lg' : 'border-dark-700'} rounded-xl transition-all duration-300 ${className}`}>
       {/* Compact Header - Always Visible */}
       <div 
         className="p-4 cursor-pointer hover:bg-dark-700 transition-colors duration-200"
@@ -83,8 +94,8 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
         {/* Desktop Layout: Single Row */}
         <div className="hidden lg:flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className={`p-2 ${hasChanged ? 'bg-orange-500/30' : 'bg-orange-500/10'} rounded-lg transition-colors duration-300 flex-shrink-0`}>
-              <AlertTriangle className={`w-4 h-4 ${hasChanged ? 'text-orange-300' : 'text-orange-400'} transition-colors duration-300`} />
+            <div className={`p-2 ${hasChanged ? 'bg-orange-500/30' : isHedgeSelected ? 'bg-primary-500/30' : 'bg-orange-500/10'} rounded-lg transition-colors duration-300 flex-shrink-0`}>
+              <AlertTriangle className={`w-4 h-4 ${hasChanged ? 'text-orange-300' : isHedgeSelected ? 'text-primary-400' : 'text-orange-400'} transition-colors duration-300`} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
@@ -95,6 +106,20 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
               </div>
               <span className="text-sm text-dark-400">Unhedged Position</span>
             </div>
+          </div>
+          
+          {/* Hedge Checkbox - Desktop */}
+          <div className="flex items-center gap-3 mx-4">
+            <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={isHedgeSelected}
+                onChange={handleHedgeToggle}
+                disabled={disabled}
+                className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-500 focus:ring-primary-500 focus:ring-2 disabled:opacity-50"
+              />
+              <span className="text-sm text-dark-400 whitespace-nowrap">Apply Hedge</span>
+            </label>
           </div>
           
           {/* Allocation Slider - Desktop */}
@@ -142,8 +167,8 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
           {/* First Row: Icon, Name, Badge, Value, Expand Icon */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3 flex-1 min-w-0">
-              <div className={`p-2 ${hasChanged ? 'bg-orange-500/30' : 'bg-orange-500/10'} rounded-lg transition-colors duration-300 flex-shrink-0`}>
-                <AlertTriangle className={`w-4 h-4 ${hasChanged ? 'text-orange-300' : 'text-orange-400'} transition-colors duration-300`} />
+              <div className={`p-2 ${hasChanged ? 'bg-orange-500/30' : isHedgeSelected ? 'bg-primary-500/30' : 'bg-orange-500/10'} rounded-lg transition-colors duration-300 flex-shrink-0`}>
+                <AlertTriangle className={`w-4 h-4 ${hasChanged ? 'text-orange-300' : isHedgeSelected ? 'text-primary-400' : 'text-orange-400'} transition-colors duration-300`} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -172,28 +197,45 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
             </div>
           </div>
 
-          {/* Second Row: Allocation Slider - Mobile/Tablet */}
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-dark-400 whitespace-nowrap">Allocation:</span>
-            <div className="flex-1 relative">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                step="1"
-                value={sliderValue}
-                onChange={handleSliderChange}
-                disabled={disabled}
-                className={`w-full h-2 bg-dark-600 rounded-lg appearance-none ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
-                style={{
-                  background: `linear-gradient(to right, #f97316 0%, #f97316 ${sliderValue}%, #374151 ${sliderValue}%, #374151 100%)`
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
+          {/* Second Row: Hedge Checkbox and Allocation Slider - Mobile/Tablet */}
+          <div className="space-y-3">
+            {/* Hedge Checkbox */}
+            <div className="flex items-center justify-center">
+              <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={isHedgeSelected}
+                  onChange={handleHedgeToggle}
+                  disabled={disabled}
+                  className="w-4 h-4 rounded border-dark-600 bg-dark-700 text-primary-500 focus:ring-primary-500 focus:ring-2 disabled:opacity-50"
+                />
+                <span className="text-sm text-dark-400">Apply Hedge to this position</span>
+              </label>
             </div>
-            <span className={`text-lg font-bold ${hasChanged ? 'text-orange-400' : 'text-white'} whitespace-nowrap min-w-[50px] text-right`}>
-              {Math.round(sliderValue)}%
-            </span>
+            
+            {/* Allocation Slider */}
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-dark-400 whitespace-nowrap">Allocation:</span>
+              <div className="flex-1 relative">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={sliderValue}
+                  onChange={handleSliderChange}
+                  disabled={disabled}
+                  className={`w-full h-2 bg-dark-600 rounded-lg appearance-none ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+                  style={{
+                    background: `linear-gradient(to right, #f97316 0%, #f97316 ${sliderValue}%, #374151 ${sliderValue}%, #374151 100%)`
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+              <span className={`text-lg font-bold ${hasChanged ? 'text-orange-400' : 'text-white'} whitespace-nowrap min-w-[50px] text-right`}>
+                {Math.round(sliderValue)}%
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -232,6 +274,19 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
                 </>
               )}
             </div>
+            
+            {/* Hedge Selection Indicator */}
+            {isHedgeSelected && (
+              <div className="flex items-center justify-between bg-primary-500/10 border border-primary-500/20 rounded-lg p-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-primary-400 rounded-full"></div>
+                  <span className="text-primary-400 text-sm font-medium">Hedge Selected</span>
+                </div>
+                <span className="text-xs text-primary-400 font-medium">
+                  This position will be hedged
+                </span>
+              </div>
+            )}
             
             {/* Allocation Change Indicator */}
             {hasChanged && (
