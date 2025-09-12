@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { calculateSpotPositionAdjustment, calculateHedgePositionFromAllocation } from "../utils/hedgeCalculations";
 
 interface UnhedgedPositionCardProps {
   symbol: string;
@@ -41,6 +42,31 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
   const initialAllocation = totalPortfolioValue > 0 ? (valueUSD / totalPortfolioValue) * 100 : 0;
   const [sliderValue, setSliderValue] = useState(currentAllocation !== undefined ? currentAllocation : initialAllocation);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [selectedLeverage, setSelectedLeverage] = useState(leverage || 2); // Leverage par défaut à 2x
+
+  // Calculate dynamic position value when hedge is selected
+  const currentPrice = valueUSD / balance; // Calculate current price from balance and value
+  
+  // Calculer séparément les deux types de positions
+  const hedgePositionBreakdown = isHedgeSelected 
+    ? calculateHedgePositionFromAllocation(
+        sliderValue,
+        totalPortfolioValue,
+        currentPrice,
+        selectedLeverage // Utiliser le leverage sélectionné
+      )
+    : null;
+    
+  const spotPositionAdjustment = !isHedgeSelected 
+    ? calculateSpotPositionAdjustment(
+        symbol,
+        balance,
+        valueUSD,
+        sliderValue,
+        totalPortfolioValue,
+        currentPrice
+      )
+    : null;
 
   // Update slider when currentAllocation changes
   React.useEffect(() => {
@@ -55,6 +81,13 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
       setSliderValue(initialAllocation);
     }
   }, [resetTrigger, initialAllocation]);
+
+  // Reset leverage to default when hedge is toggled off
+  React.useEffect(() => {
+    if (!isHedgeSelected) {
+      setSelectedLeverage(leverage || 2);
+    }
+  }, [isHedgeSelected, leverage]);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return;
@@ -141,6 +174,14 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
           {/* Position Value - Desktop */}
           <div className="text-right min-w-[120px]">
             <div className="text-white font-medium text-sm">${valueUSD.toFixed(2)}</div>
+            {(hedgePositionBreakdown || spotPositionAdjustment) && hasChanged && (
+              <div className="text-orange-400 text-xs font-medium">
+                → ${isHedgeSelected 
+                  ? hedgePositionBreakdown?.totalValue.toFixed(2)
+                  : spotPositionAdjustment?.targetValueUSD.toFixed(2)
+                }
+              </div>
+            )}
             <div className="text-xs text-dark-400">Position Value</div>
           </div>
           
@@ -176,6 +217,14 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
             {/* Position Value - Mobile/Tablet */}
             <div className="text-right min-w-[120px]">
               <div className="text-white font-medium text-sm">${valueUSD.toFixed(2)}</div>
+              {(hedgePositionBreakdown || spotPositionAdjustment) && hasChanged && (
+                <div className="text-orange-400 text-xs font-medium">
+                  → ${isHedgeSelected 
+                    ? hedgePositionBreakdown?.totalValue.toFixed(2)
+                    : spotPositionAdjustment?.targetValueUSD.toFixed(2)
+                  }
+                </div>
+              )}
               <div className="text-xs text-dark-400">Position Value</div>
             </div>
             
@@ -233,12 +282,58 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div>
                 <p className="text-dark-400 text-sm mb-1">Balance</p>
-                <p className="text-white font-medium">{balance.toFixed(4)}</p>
+                <div className="flex flex-col">
+                  <p className="text-white font-medium">{balance.toFixed(4)}</p>
+                  {(hedgePositionBreakdown || spotPositionAdjustment) && hasChanged && (
+                    <p className="text-orange-400 text-xs">
+                      → {isHedgeSelected 
+                        ? hedgePositionBreakdown?.spotBalance.toFixed(4)
+                        : spotPositionAdjustment?.targetSpotBalance.toFixed(4)
+                      }
+                    </p>
+                  )}
+                </div>
               </div>
               <div>
                 <p className="text-dark-400 text-sm mb-1">Value USD</p>
-                <p className="text-white font-medium">${valueUSD.toFixed(2)}</p>
+                <div className="flex flex-col">
+                  <p className="text-white font-medium">${valueUSD.toFixed(2)}</p>
+                  {(hedgePositionBreakdown || spotPositionAdjustment) && hasChanged && (
+                    <p className="text-orange-400 text-xs">
+                      → ${isHedgeSelected 
+                        ? hedgePositionBreakdown?.spotValue.toFixed(2)
+                        : spotPositionAdjustment?.targetValueUSD.toFixed(2)
+                      }
+                    </p>
+                  )}
+                </div>
               </div>
+              
+              {/* Afficher les détails perp uniquement si hedge est sélectionné */}
+              {isHedgeSelected && hedgePositionBreakdown && hasChanged && (
+                <>
+                  <div>
+                    <p className="text-dark-400 text-sm mb-1">Perp Position</p>
+                    <div className="flex flex-col">
+                      <p className="text-white font-medium">0.0000</p>
+                      <p className="text-orange-400 text-xs">
+                        → {hedgePositionBreakdown.perpPosition.toFixed(4)}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-dark-400 text-sm mb-1">Margin Used</p>
+                    <div className="flex flex-col">
+                      <p className="text-white font-medium">$0.00</p>
+                      <p className="text-orange-400 text-xs">
+                        → ${hedgePositionBreakdown.margin.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+              
+              {/* Afficher les détails perp existants si c'est une position perp */}
               {type === "perp" && (
                 <>
                   <div>
@@ -252,6 +347,36 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
                 </>
               )}
             </div>
+            
+            {/* Additional Hedge Details when hedge is selected */}
+            {isHedgeSelected && hedgePositionBreakdown && hasChanged && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-dark-400">Total Capital Required</span>
+                  <div className="flex flex-col items-end">
+                    <p className="text-white font-medium">${valueUSD.toFixed(2)}</p>
+                    <p className="text-orange-400 text-xs">
+                      → ${(hedgePositionBreakdown.spotValue + hedgePositionBreakdown.margin).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-dark-400">Leverage</span>
+                  <span className="text-white font-medium">{hedgePositionBreakdown.leverage.toFixed(0)}x</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-dark-400">Liquidation Price</span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-white font-medium">${hedgePositionBreakdown.liquidationPrice.toFixed(2)}</span>
+                    <span className="text-xs text-dark-400">
+                      ({(((hedgePositionBreakdown.liquidationPrice - currentPrice) / currentPrice) * 100).toFixed(1)}%)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Hedge Configuration Section */}
             <div className="bg-gradient-to-r from-primary-500/5 to-blue-500/5 border border-primary-500/20 rounded-xl p-4 mb-4">
@@ -308,9 +433,43 @@ const UnhedgedPositionCard: React.FC<UnhedgedPositionCardProps> = ({
                       <div className="w-2 h-2 bg-primary-400 rounded-full animate-pulse"></div>
                       <span className="text-primary-400 text-sm font-medium">Hedge Protection Active</span>
                     </div>
-                    <p className="text-primary-300 text-xs">
+                    <p className="text-primary-300 text-xs mb-3">
                       This position will be automatically hedged with a short perpetual position.
                     </p>
+                    
+                    {/* Leverage Selection */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <label className="text-primary-400 text-sm font-medium min-w-[70px]">Leverage:</label>
+                        <select
+                          value={selectedLeverage}
+                          onChange={(e) => setSelectedLeverage(Number(e.target.value))}
+                          className="bg-dark-700 border border-dark-500 text-white text-sm rounded-lg px-3 py-1 min-w-[80px] focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:border-primary-500"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <option value={1}>1x</option>
+                          <option value={2}>2x</option>
+                          <option value={3}>3x</option>
+                          <option value={4}>4x</option>
+                          <option value={5}>5x</option>
+                          <option value={10}>10x</option>
+                          <option value={20}>20x</option>
+                        </select>
+                        <span className="text-primary-300 text-xs flex-1">
+                          Higher leverage = less capital required, higher liquidation risk
+                        </span>
+                      </div>
+                      
+                      {/* Show leverage impact */}
+                      {hedgePositionBreakdown && (
+                        <div className="text-xs text-primary-200 bg-primary-500/5 rounded p-2">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>Capital required: <span className="font-medium">${(hedgePositionBreakdown.spotValue + hedgePositionBreakdown.margin).toFixed(2)}</span></div>
+                            <div>Liquidation: <span className="font-medium">${hedgePositionBreakdown.liquidationPrice.toFixed(2)}</span></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

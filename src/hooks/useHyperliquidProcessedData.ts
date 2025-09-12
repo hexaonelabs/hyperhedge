@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useHyperliquidData } from "./useHyperliquidData";
 import {
   processFundingRates,
@@ -99,6 +99,19 @@ export const useHyperliquidProcessedData = () => {
   );
   const hasUserData = Boolean(spotClearinghouseState && clearinghouseState);
 
+  const getTokenSpotPrice = useCallback((symbol: string) => {
+    const spotAsset = spotClearinghouseState?.balances.find((b) => b.coin === symbol);
+    const universeItem = spotMetaAndAssetCtxs?.[0].universe.find(
+      (item) => item.tokens[0] === spotAsset?.token
+    );
+    const index = universeItem?.index === 0 && spotAsset?.coin === 'PURR'
+      ? 'PURR/USDC'
+      : `@${universeItem?.index}`;
+    const mid = spotAsset?.coin === 'USDC' ? 1 : (Number(allMids?.[index] || 0));
+    console.log({symbol, spotAsset, allMids, mid, universeItem, index });
+    return mid;
+  }, [allMids, spotClearinghouseState?.balances, spotMetaAndAssetCtxs]);
+
   return {
     // États
     isLoading,
@@ -133,5 +146,6 @@ export const useHyperliquidProcessedData = () => {
     refreshUserData,
     refreshFundingHistory,
     refreshAllData,
+    getTokenSpotPrice,
   };
 };

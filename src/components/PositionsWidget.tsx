@@ -18,6 +18,7 @@ import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
 import { useHyperliquidData } from "../hooks/useHyperliquidData";
 import { SecureKeyManager } from "../utils/SecureKeyManager";
 import * as hl from "@nktkas/hyperliquid";
+import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
 
 // interface UnhedgedPosition {
 //   symbol: string;
@@ -71,6 +72,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
     spotMetaAndAssetCtxs,
     refreshUserData,
   } = useHyperliquidData();
+  const { getTokenSpotPrice } = useHyperliquidProcessedData();
 
   // Notifier le parent quand hasUnsavedChanges change
   React.useEffect(() => {
@@ -118,7 +120,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
       .map((spot) => ({
         symbol: spot.coin,
         balance: Number(spot.total),
-        valueUSD: Number(spot.total) * 1, // Vous pourriez avoir besoin de calculer le prix réel ici
+        valueUSD: Number(spot.total) * getTokenSpotPrice(spot.coin), 
         type: "spot" as const,
       }));
 
