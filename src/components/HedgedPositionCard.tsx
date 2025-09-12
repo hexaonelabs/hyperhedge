@@ -110,9 +110,20 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
       </div>
 
       {/* Position Details */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-3 mb-6 text-sm">
         <div>
-          <p className="text-dark-400 text-sm mb-1">Spot Balance</p>
+          <p className="text-dark-400 text-xs mb-1">Spot Value USD</p>
+          <div className="flex flex-col">
+            <p className="text-white font-medium">${(currentPrice * position.spotBalance).toFixed(2)}</p>
+            {hasChanged && (
+              <p className="text-orange-400 text-xs">
+                → ${(currentPrice * dynamicPositionBreakdown.spotBalance).toFixed(2)}
+              </p>
+            )}
+          </div>
+        </div>
+        <div>
+          <p className="text-dark-400 text-xs mb-1">Spot Quantity</p>
           <div className="flex flex-col">
             <p className="text-white font-medium">{position.spotBalance.toFixed(4)}</p>
             {hasChanged && (
@@ -123,7 +134,18 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
           </div>
         </div>
         <div>
-          <p className="text-dark-400 text-sm mb-1">Perp Position</p>
+          <p className="text-dark-400 text-xs mb-1">Perp Value USD</p>
+          <div className="flex flex-col">
+            <p className="text-white font-medium">${position.perpValueUSD.toFixed(2)}</p>
+            {hasChanged && (
+              <p className="text-orange-400 text-xs">
+                → ${(currentPrice * Math.abs(dynamicPositionBreakdown.perpPosition)).toFixed(2)}
+              </p>
+            )}
+          </div>
+        </div>
+        <div>
+          <p className="text-dark-400 text-xs mb-1">Perp Quantity</p>
           <div className="flex flex-col">
             <p className="text-white font-medium">{position.perpPosition.toFixed(4)}</p>
             {hasChanged && (
@@ -134,13 +156,13 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
           </div>
         </div>
         <div>
-          <p className="text-dark-400 text-sm mb-1">Leverage</p>
-          <p className="text-white font-medium">{position.leverage.toFixed(2)}x</p>
+          <p className="text-dark-400 text-xs mb-1">Leverage</p>
+          <p className="text-white font-medium">{position.leverage.toFixed(0)}x</p>
         </div>
         <div>
-          <p className="text-dark-400 text-sm mb-1">USD required</p>
+          <p className="text-dark-400 text-xs mb-1">Margin Value USD</p>
           <div className="flex flex-col">
-            <p className="text-white font-medium">${positionValueRequied.toFixed(2)}</p>
+            <p className="text-white font-medium">${position.margin.toFixed(2)}</p>
             {hasChanged && (
               <p className="text-orange-400 text-xs">
                 → ${dynamicPositionBreakdown.margin.toFixed(2)}
