@@ -205,6 +205,18 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
           />
         </div>
         
+        <div className="flex items-center justify-between text-sm">
+          <p className="text-dark-400">Allocated Capital USD</p>
+          <div className="flex flex-col">
+            <p className="text-white font-medium">${positionValueRequied.toFixed(2)}</p>
+            {hasChanged && (
+              <p className="text-orange-400 text-xs">
+                → ${(dynamicPositionBreakdown.totalValue + dynamicPositionBreakdown.margin).toFixed(2)}
+              </p>
+            )}
+          </div>
+        </div>
+
         {/* Value Display */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-dark-400">Current price</span>

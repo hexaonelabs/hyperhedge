@@ -1,18 +1,15 @@
 import React, { useState, useMemo } from "react";
-import {
-  BarChart3,
-  Save,
-  X,
-  AlertCircle,
-  Activity,
-  Plus,
-} from "lucide-react";
+import { BarChart3, Save, X, AlertCircle, Activity, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import HedgedPositionCard from "./HedgedPositionCard";
 import UnhedgedPositionCard from "./UnhedgedPositionCard";
 import USDCReservesCard from "./USDCReservesCard";
 import { HedgePositionSummary } from "../types";
-import { PositionAdjustment, calculatePositionAdjustment, getCurrentPrice } from "../utils/hedgeCalculations";
+import {
+  PositionAdjustment,
+  calculatePositionAdjustment,
+  getCurrentPrice,
+} from "../utils/hedgeCalculations";
 import { updateHedgePosition } from "../services/hl-exchange.service";
 import { useWallet } from "../hooks/useWallet";
 import { useNotification } from "../hooks/useNotification";
@@ -50,7 +47,9 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
 }) => {
   const navigate = useNavigate();
   // State pour gérer les changements d'allocation
-  const [allocationChanges, setAllocationChanges] = useState<Record<string, number>>({});
+  const [allocationChanges, setAllocationChanges] = useState<
+    Record<string, number>
+  >({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [resetTrigger, setResetTrigger] = useState(0);
   const [isResetting, setIsResetting] = useState(false);
@@ -79,7 +78,8 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   // Calculer les réserves USDC
   const usdcReserves = useMemo(() => {
     const spotUSDC =
-      spotClearinghouseState?.balances.find((b) => b.coin === "USDC")?.total || "0";
+      spotClearinghouseState?.balances.find((b) => b.coin === "USDC")?.total ||
+      "0";
     const perpUSDC = clearinghouseState?.marginSummary.accountValue || "0";
 
     return {
@@ -106,7 +106,11 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
     const hedgedSymbols = hedgePositions?.map((hp) => hp.symbol) || [];
     // Positions spot non hedgées
     const unhedgedSpot = spotPositions
-      .filter((spot) => !hedgedSymbols.includes(spot.coin) && !hedgedSymbols.map(s => (`U${s}`)).includes(spot.coin))
+      .filter(
+        (spot) =>
+          !hedgedSymbols.includes(spot.coin) &&
+          !hedgedSymbols.map((s) => `U${s}`).includes(spot.coin)
+      )
       .map((spot) => ({
         symbol: spot.coin,
         balance: Number(spot.total),
@@ -134,7 +138,10 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   }, [spotClearinghouseState, clearinghouseState, hedgePositions]);
 
   // Fonction utilitaire pour obtenir la valeur d'une position
-  const getPositionValue = (position: { valueUSD?: number; margin?: number }): number => {
+  const getPositionValue = (position: {
+    valueUSD?: number;
+    margin?: number;
+  }): number => {
     return position.valueUSD || position.margin || 0;
   };
 
@@ -151,7 +158,9 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
 
     const positionValue = position ? getPositionValue(position) : 0;
     const initialAllocation =
-      totalAccountValueUSD > 0 ? (positionValue / totalAccountValueUSD) * 100 : 0;
+      totalAccountValueUSD > 0
+        ? (positionValue / totalAccountValueUSD) * 100
+        : 0;
 
     // Mettre à jour les changements
     const newChanges = { ...allocationChanges, [symbol]: percentage };
@@ -214,7 +223,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   // Mettre à jour la stratégie
   const handleUpdateStrategy = async () => {
     console.log("Updating strategy with changes:", allocationChanges);
-    
+
     try {
       setIsSubmitting(true);
       showLoading();
@@ -238,7 +247,10 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
       hedgedPositions.forEach((position) => {
         const newAllocation = allocationChanges[position.symbol];
         if (newAllocation !== undefined) {
-          const currentPrice = getCurrentPrice(position.perpValueUSD, position.perpPosition);
+          const currentPrice = getCurrentPrice(
+            position.perpValueUSD,
+            position.perpPosition
+          );
           const adjustment = calculatePositionAdjustment(
             position,
             newAllocation,
@@ -256,7 +268,9 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
           // Pour les positions non hedgées, il faudrait les convertir en positions hedgées
           // ou simplement ajuster leur taille
           // Cette logique dépend de votre stratégie produit
-          console.log(`Unhedged position adjustment needed for ${position.symbol}: ${newAllocation}%`);
+          console.log(
+            `Unhedged position adjustment needed for ${position.symbol}: ${newAllocation}%`
+          );
         }
       });
 
@@ -291,7 +305,8 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
         apiWalletPrivateKey as `0x${string}`,
         {
           adjustments,
-          subAccountAddress: (config?.subAccountAddress as `0x${string}`) || undefined,
+          subAccountAddress:
+            (config?.subAccountAddress as `0x${string}`) || undefined,
           isTestnet: config.isTestnet || false,
         },
         {
@@ -304,22 +319,24 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
       );
 
       // Analyser les résultats
-      const successfulAdjustments = result.results.filter(r => r.success);
-      const failedAdjustments = result.results.filter(r => !r.success);
+      const successfulAdjustments = result.results.filter((r) => r.success);
+      const failedAdjustments = result.results.filter((r) => !r.success);
 
       if (successfulAdjustments.length > 0) {
         // Préparer les données pour la notification de succès
-        const orders = successfulAdjustments.flatMap(adj => 
-          adj.orders.map(order => {
+        const orders = successfulAdjustments.flatMap((adj) =>
+          adj.orders.map((order) => {
+            const orderStatus = order.response.response.data
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const orderStatus = order.response.response.data?.statuses?.[0] as any;
+            ?.statuses?.[0] as any;
             return {
-              oid: orderStatus?.filled?.oid || orderStatus?.resting?.oid || "N/A",
+              oid:
+                orderStatus?.filled?.oid || orderStatus?.resting?.oid || "N/A",
               filled: Object.keys(orderStatus || {}).includes("filled"),
               type: order.type as "spot" | "perp",
               symbol: adj.symbol,
               action: order.action,
-              size: order.size
+              size: order.size,
             };
           })
         );
@@ -332,7 +349,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
 
         // Réinitialiser les changements pour les positions mises à jour avec succès
         const newChanges = { ...allocationChanges };
-        successfulAdjustments.forEach(adj => {
+        successfulAdjustments.forEach((adj) => {
           delete newChanges[adj.symbol];
         });
         setAllocationChanges(newChanges);
@@ -340,10 +357,11 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
       }
 
       if (failedAdjustments.length > 0) {
-        const errorMessage = `Some position updates failed: ${failedAdjustments.map(f => f.symbol).join(', ')}`;
+        const errorMessage = `Some position updates failed: ${failedAdjustments
+          .map((f) => f.symbol)
+          .join(", ")}`;
         showError(errorMessage);
       }
-
     } catch (error: unknown) {
       console.error("Error updating strategy:", error);
 
@@ -352,7 +370,8 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
         if (error.message?.includes("insufficient")) {
           errorMessage = "Insufficient balance for rebalancing";
         } else if (error.message?.includes("network")) {
-          errorMessage = "Network error. Please check your connection and try again";
+          errorMessage =
+            "Network error. Please check your connection and try again";
         } else if (error.message?.includes("signature")) {
           errorMessage = "Transaction signature failed. Please try again";
         } else {
@@ -452,86 +471,6 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
           totalPortfolioValue={getTotalPortfolioValue()}
         />
 
-        {/* Strategy Changes Notification - Only show if not in watch mode */}
-        {hasUnsavedChanges && !isWatchMode && (
-          <div
-            className={`mt-6 ${
-              isOverAllocated
-                ? "bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/20"
-                : "bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border-orange-500/20"
-            } border rounded-xl p-4`}
-          >
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div
-                  className={`p-2 ${
-                    isOverAllocated ? "bg-red-500/20" : "bg-orange-500/20"
-                  } rounded-lg flex-shrink-0`}
-                >
-                  <AlertCircle
-                    className={`w-5 h-5 ${
-                      isOverAllocated ? "text-red-400" : "text-orange-400"
-                    }`}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-white font-semibold mb-1">
-                    {isOverAllocated
-                      ? "Invalid Allocation"
-                      : "Strategy Changes Detected"}
-                  </h4>
-                  {isOverAllocated ? (
-                    <p className="text-red-200 text-sm">
-                      Positions allocation ({totalAllocation.toFixed(1)}%)
-                      exceeds 100%. Please adjust your positions.
-                    </p>
-                  ) : (
-                    <p className="text-orange-200 text-sm">
-                      You have modified your portfolio allocation. Review and
-                      apply changes below.
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 lg:flex-shrink-0">
-                <button
-                  onClick={handleCancelChanges}
-                  disabled={isSubmitting}
-                  className={`px-4 py-2 border border-orange-500/30 hover:border-orange-500/50 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
-                    isSubmitting 
-                      ? "text-gray-400 border-gray-500/30 cursor-not-allowed"
-                      : "text-orange-400 hover:text-orange-300"
-                  }`}
-                >
-                  <X className="w-4 h-4" />
-                  <span className="whitespace-nowrap">Cancel</span>
-                </button>
-                <button
-                  onClick={handleUpdateStrategy}
-                  disabled={isOverAllocated || isSubmitting}
-                  className={`px-4 py-2 font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${
-                    isOverAllocated || isSubmitting
-                      ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                      : "bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
-                  }`}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                      <span className="whitespace-nowrap">Processing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" />
-                      <span className="whitespace-nowrap">Update Strategy</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="mt-8">
           {/* Hedged Positions */}
           {hedgedPositions.length > 0 && (
@@ -553,18 +492,104 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                   />
                 ))}
               </div>
-              
-              {/* Add Position Button */}
-              <div className="mt-6 flex justify-center">
-                <button
-                  onClick={() => navigate('/markets')}
-                  disabled={isWatchMode}
-                  className="flex items-center gap-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 text-black font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+
+              {/* Strategy Changes Notification - Only show if not in watch mode */}
+              {hasUnsavedChanges && !isWatchMode && (
+                <div
+                  className={`mt-6 ${
+                    isOverAllocated
+                      ? "bg-gradient-to-r from-red-500/10 to-orange-500/10 border-red-500/20"
+                      : "bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border-orange-500/20"
+                  } border rounded-xl p-4`}
                 >
-                  <Plus className="w-5 h-5" />
-                  Add Position
-                </button>
-              </div>
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`p-2 ${
+                          isOverAllocated ? "bg-red-500/20" : "bg-orange-500/20"
+                        } rounded-lg flex-shrink-0`}
+                      >
+                        <AlertCircle
+                          className={`w-5 h-5 ${
+                            isOverAllocated ? "text-red-400" : "text-orange-400"
+                          }`}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-white font-semibold mb-1">
+                          {isOverAllocated
+                            ? "Invalid Allocation"
+                            : "Strategy Changes Detected"}
+                        </h4>
+                        {isOverAllocated ? (
+                          <p className="text-red-200 text-sm">
+                            Positions allocation ({totalAllocation.toFixed(1)}%)
+                            exceeds 100%. Please adjust your positions.
+                          </p>
+                        ) : (
+                          <p className="text-orange-200 text-sm">
+                            You have modified your portfolio allocation. Review
+                            and apply changes below.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 lg:flex-shrink-0">
+                      <button
+                        onClick={handleCancelChanges}
+                        disabled={isSubmitting}
+                        className={`px-4 py-2 border border-orange-500/30 hover:border-orange-500/50 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2 ${
+                          isSubmitting
+                            ? "text-gray-400 border-gray-500/30 cursor-not-allowed"
+                            : "text-orange-400 hover:text-orange-300"
+                        }`}
+                      >
+                        <X className="w-4 h-4" />
+                        <span className="whitespace-nowrap">Cancel</span>
+                      </button>
+                      <button
+                        onClick={handleUpdateStrategy}
+                        disabled={isOverAllocated || isSubmitting}
+                        className={`px-4 py-2 font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2 ${
+                          isOverAllocated || isSubmitting
+                            ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                            : "bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white"
+                        }`}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                            <span className="whitespace-nowrap">
+                              Processing...
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4" />
+                            <span className="whitespace-nowrap">
+                              Update Strategy
+                            </span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Add Position Button */}
+              {!hasUnsavedChanges && (
+                <div className="mt-6 flex justify-center">
+                  <button
+                    onClick={() => navigate("/markets")}
+                    disabled={isWatchMode}
+                    className="flex items-center gap-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 text-black font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Add Position
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -597,9 +622,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                     leverage={
                       "leverage" in position ? position.leverage : undefined
                     }
-                    margin={
-                      "margin" in position ? position.margin : undefined
-                    }
+                    margin={"margin" in position ? position.margin : undefined}
                   />
                 ))}
               </div>
