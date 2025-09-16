@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   XAxis,
   YAxis,
@@ -11,7 +11,7 @@ import {
   LineChart,
   ReferenceLine,
 } from "recharts";
-import { TrendingUp, DollarSign, BarChart3 } from "lucide-react";
+import { TrendingUp, DollarSign, BarChart3, ChevronDown } from "lucide-react";
 import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
 import { UserFundingUpdate } from "@nktkas/hyperliquid";
 
@@ -22,23 +22,98 @@ interface FundingDataPoint {
 
 interface FundingsChartProps {
   data: FundingDataPoint[];
-  totalDays: number;
-  apyPercentage: number;
   initialAmountUSD: number;
   className?: string;
 }
 
+type TimeFilter = '7d' | '14d' | '30d' | '90d' | 'all';
+
+interface TimeFilterOption {
+  value: TimeFilter;
+  label: string;
+  days: number | null;
+}
+
+const timeFilterOptions: TimeFilterOption[] = [
+  { value: '7d', label: '7 jours', days: 7 },
+  { value: '14d', label: '14 jours', days: 14 },
+  { value: '30d', label: '30 jours', days: 30 },
+  { value: '90d', label: '90 jours', days: 90 },
+  { value: 'all', label: 'Tout', days: null },
+];
+
 const FundingsChart: React.FC<FundingsChartProps> = ({
   data,
-  totalDays,
-  apyPercentage,
   initialAmountUSD,
   className = "",
 }) => {
+  const [selectedTimeFilter, setSelectedTimeFilter] = useState<TimeFilter>('7d');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const { raw: { userFunding } } = useHyperliquidProcessedData();
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Filter data based on selected time period
+  const filteredData = useMemo(() => {
+    const selectedOption = timeFilterOptions.find(option => option.value === selectedTimeFilter);
+    
+    if (!selectedOption || selectedOption.days === null) {
+      return data; // Return all data
+    }
+
+    const cutoffTime = Date.now() - (selectedOption.days * 24 * 60 * 60 * 1000);
+    return data.filter(point => point.time >= cutoffTime);
+  }, [data, selectedTimeFilter]);
+
+  // Filter userFunding data as well
+  const filteredUserFunding = useMemo(() => {
+    const selectedOption = timeFilterOptions.find(option => option.value === selectedTimeFilter);
+    
+    if (!userFunding || !selectedOption || selectedOption.days === null) {
+      return userFunding || [];
+    }
+
+    const cutoffTime = Date.now() - (selectedOption.days * 24 * 60 * 60 * 1000);
+    return userFunding.filter(point => point.time >= cutoffTime);
+  }, [userFunding, selectedTimeFilter]);
+
+  // Recalculate metrics based on filtered data
+  const filteredMetrics = useMemo(() => {
+    if (filteredData.length === 0) {
+      return {
+        totalFunding: 0,
+        actualTotalDays: 0,
+        actualApyPercentage: 0,
+      };
+    }
+
+    const totalFunding = filteredData[filteredData.length - 1]?.funding || 0;
+    const actualTotalDays = (Date.now() - (filteredData[0]?.time || 0)) / (1000 * 60 * 60 * 24);
+    const totalGainByDayUSD = totalFunding / (actualTotalDays || 1);
+    const actualApyPercentage = (Math.pow(1 + totalGainByDayUSD / initialAmountUSD, 365) - 1) * 100;
+
+    return {
+      totalFunding,
+      actualTotalDays,
+      actualApyPercentage,
+    };
+  }, [filteredData, initialAmountUSD]);
   // Format data for chart
-  const chartData = data.map((point) => ({
+  const chartData = filteredData.map((point) => ({
     ...point,
     date: new Date(point.time).toLocaleString("en-US", {
       year: "numeric",
@@ -51,7 +126,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
     fundingUSD: point.funding,
   }));
   // Calculate APY progression data based on real funding data
-  const apyData = (userFunding || []).map((point, index) => {
+  const apyData = filteredUserFunding.map((point, index) => {
     let instantAPY = 0;
     
     if (index > 0) {
@@ -130,7 +205,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
     return null;
   };
 
-  const totalFunding = data[data.length - 1]?.funding || 0;
+  const totalFunding = filteredMetrics.totalFunding;
   const isPositive = totalFunding >= 0;
 
   // Calculate APY statistics
@@ -142,24 +217,60 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
     <div
       className={`bg-dark-900 border border-dark-800 rounded-xl p-6 ${className}`}
     >
-      {/* Header with stats */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <div className="p-2 bg-primary-500/10 rounded-lg">
-              <BarChart3 className="w-5 h-5 text-primary-400" />
+      {/* Header with stats and time filter */}
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-6 mb-6">
+        <div className="flex-1">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
+            <div className="flex items-center gap-2">
+              <div className="p-2 bg-primary-500/10 rounded-lg">
+                <BarChart3 className="w-5 h-5 text-primary-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white">
+                Funding Rates Progress
+              </h3>
             </div>
-            <h3 className="text-lg font-semibold text-white">
-              Funding Rates Progress
-            </h3>
+            
+            {/* Time Filter Dropdown - à côté du titre */}
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-dark-800 border border-dark-600 rounded-lg text-sm text-dark-300 hover:bg-dark-700 hover:border-dark-500 transition-colors min-w-[100px]"
+              >
+                <span className="truncate">
+                  {timeFilterOptions.find(option => option.value === selectedTimeFilter)?.label}
+                </span>
+                <ChevronDown className={`w-4 h-4 transition-transform flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {isDropdownOpen && (
+                <div className="absolute top-full left-0 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-lg z-10 min-w-[120px]">
+                  {timeFilterOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        setSelectedTimeFilter(option.value);
+                        setIsDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-3 py-2 text-sm hover:bg-dark-700 transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                        selectedTimeFilter === option.value
+                          ? 'text-primary-400 bg-primary-500/10'
+                          : 'text-dark-300'
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <p className="text-dark-400 text-sm">
-            Cumulative funding earnings over the last {Math.round(totalDays)}{" "}
+            Cumulative funding earnings over the last {Math.round(filteredMetrics.actualTotalDays)}{" "}
             days
           </p>
         </div>
 
-        <div className="text-right">
+        <div className="text-left lg:text-right">
           <div className="flex items-center gap-2 mb-1">
             <DollarSign className="w-4 h-4 text-dark-400" />
             <span className="text-dark-400 text-sm">Total Earned</span>
@@ -180,11 +291,11 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
           <p className="text-dark-400 text-sm mb-1">Average APY</p>
           <p
             className={`text-lg font-bold ${
-              apyPercentage >= 0 ? "text-primary-400" : "text-red-400"
+              filteredMetrics.actualApyPercentage >= 0 ? "text-primary-400" : "text-red-400"
             }`}
           >
-            {apyPercentage >= 0 ? "+" : ""}
-            {apyPercentage.toFixed(2)}%
+            {filteredMetrics.actualApyPercentage >= 0 ? "+" : ""}
+            {filteredMetrics.actualApyPercentage.toFixed(2)}%
           </p>
         </div>
 
@@ -206,7 +317,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
               totalFunding >= 0 ? "text-primary-400" : "text-red-400"
             }`}
           >
-            ${((totalFunding || 0) / (totalDays || 1)).toFixed(4)}
+            ${((totalFunding || 0) / (filteredMetrics.actualTotalDays || 1)).toFixed(4)}
           </p>
         </div>
 

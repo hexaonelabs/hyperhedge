@@ -333,8 +333,6 @@ const PositionsPage: React.FC = () => {
       {accountFundingHistory && (
         <FundingsChart
           data={accountFundingHistory.data}
-          totalDays={accountFundingHistory.totalDays}
-          apyPercentage={accountFundingHistory.apyPercentage}
           initialAmountUSD={accountFundingHistory.initialAmountUSD}
           className="mb-6"
         />
