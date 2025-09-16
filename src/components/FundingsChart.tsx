@@ -112,8 +112,8 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
       actualApyPercentage,
     };
   }, [filteredData, initialAmountUSD]);
-  // Format data for chart
-  const chartData = filteredData.map((point) => ({
+  // Format data for chart with stable keys
+  const chartData = useMemo(() => filteredData.map((point) => ({
     ...point,
     date: new Date(point.time).toLocaleString("en-US", {
       year: "numeric",
@@ -124,9 +124,10 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
       hour12: false,
     }),
     fundingUSD: point.funding,
-  }));
-  // Calculate APY progression data based on real funding data
-  const apyData = filteredUserFunding.map((point, index) => {
+  })), [filteredData]);
+
+  // Calculate APY progression data based on real funding data with stable keys
+  const apyData = useMemo(() => filteredUserFunding.map((point, index) => {
     let instantAPY = 0;
     
     if (index > 0) {
@@ -147,7 +148,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
       }),
       apy: instantAPY,
     };
-  });
+  }), [filteredUserFunding]);
   // Custom tooltip for funding chart
   const CustomFundingTooltip = ({
     active,
@@ -208,10 +209,16 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
   const totalFunding = filteredMetrics.totalFunding;
   const isPositive = totalFunding >= 0;
 
-  // Calculate APY statistics
-  const validAPYValues = apyData.filter(point => point.apy !== 0).map(point => point.apy);
-  const maxAPY = validAPYValues.length > 0 ? Math.max(...validAPYValues) : 0;
-  const minAPY = validAPYValues.length > 0 ? Math.min(...validAPYValues) : 0;
+  // Calculate APY statistics with memoization
+  const apyStatistics = useMemo(() => {
+    const validAPYValues = apyData.filter(point => point.apy !== 0).map(point => point.apy);
+    return {
+      maxAPY: validAPYValues.length > 0 ? Math.max(...validAPYValues) : 0,
+      minAPY: validAPYValues.length > 0 ? Math.min(...validAPYValues) : 0,
+    };
+  }, [apyData]);
+
+  const { maxAPY, minAPY } = apyStatistics;
 
   return (
     <div
@@ -338,7 +345,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
             Cumulative Funding Earnings
           </h4>
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" key={`funding-chart-${selectedTimeFilter}`}>
               <AreaChart
                 data={chartData}
                 margin={{
@@ -350,7 +357,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
               >
                 <defs>
                   <linearGradient
-                    id="fundingGradient"
+                    id={`fundingGradient-${selectedTimeFilter}`}
                     x1="0"
                     y1="0"
                     x2="0"
@@ -393,7 +400,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
                   dataKey="fundingUSD"
                   stroke={isPositive ? "#7bfcdd" : "#f87171"}
                   strokeWidth={2}
-                  fill="url(#fundingGradient)"
+                  fill={`url(#fundingGradient-${selectedTimeFilter})`}
                   dot={false}
                   activeDot={{
                     r: 4,
@@ -401,6 +408,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
                     strokeWidth: 2,
                     fill: "#0f172a",
                   }}
+                  isAnimationActive={false}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -426,7 +434,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
             Instantaneous APY
           </h4>
           {apyData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" key={`apy-chart-${selectedTimeFilter}`}>
               <LineChart
                 data={apyData}
                 margin={{
@@ -480,6 +488,7 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
                     strokeWidth: 2,
                     fill: "#0f172a",
                   }}
+                  isAnimationActive={false}
                 />
               </LineChart>
             </ResponsiveContainer>
