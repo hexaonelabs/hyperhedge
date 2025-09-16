@@ -11,35 +11,35 @@ import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
 import { useWatchMode } from "../hooks/useWatchMode";
 import { processFundingRates } from "../services/hl-data-processor.service";
 
-// Types pour les données Hyperliquid utilisant les types de la bibliothèque
+// Types for Hyperliquid data using library types
 export interface HyperliquidDataContextType {
-  // États de chargement et d'erreur
+  // Loading and error states
   isLoading: boolean;
   error: string | null;
 
-  // Données de marché
+  // Market data
   allMids: Record<string, string> | null;
   spotMeta: hl.SpotMeta | null;
   spotMetaAndAssetCtxs: hl.SpotMetaAndAssetCtxs | null;
   metaAndAssetCtxs: hl.PerpsMetaAndAssetCtxs | null;
 
-  // Données utilisateur
+  // User data
   portfolioMetrics: hl.PortfolioPeriods | null;
   userFunding: hl.UserFundingUpdate[] | null;
   spotClearinghouseState: hl.SpotClearinghouseState | null;
   clearinghouseState: hl.PerpsClearinghouseState | null;
   openOrders: hl.Order[] | null;
 
-  // Données historiques
+  // Historical data
   fundingHistory: Record<string, hl.FundingHistory[]> | null;
 
-  // Méthodes de rafraîchissement
+  // Refresh methods
   refreshMarketData: () => Promise<void>;
   refreshUserData: () => Promise<void>;
   refreshFundingHistory: (coins?: string[]) => Promise<void>;
   refreshAllData: () => Promise<void>;
 
-  // Client Info pour les appels personnalisés
+  // Info Client for custom calls
   infoClient: hl.InfoClient | null;
 }
 
@@ -57,12 +57,12 @@ export const HyperliquidDataProvider: React.FC<
   const { address, isConnected } = useWallet();
   const { config, isLoading: isConfigLoading } = useHyperliquidConfig();
   const { isWatchMode, watchAddress } = useWatchMode();
-  console.log("Config Hyperliquid:", config, isConfigLoading);
-  // États
+  console.log("Hyperliquid Config:", config, isConfigLoading);
+  // States
   const [isLoading, setIsLoading] = useState(isConfigLoading);
   const [error, setError] = useState<string | null>(null);
 
-  // Données de marché
+  // Market data
   const [allMids, setAllMids] = useState<Record<string, string> | null>(null);
   const [spotMeta, setSpotMeta] = useState<hl.SpotMeta | null>(null);
   const [spotMetaAndAssetCtxs, setSpotMetaAndAssetCtxs] =
@@ -70,7 +70,7 @@ export const HyperliquidDataProvider: React.FC<
   const [metaAndAssetCtxs, setMetaAndAssetCtxs] =
     useState<hl.PerpsMetaAndAssetCtxs | null>(null);
 
-  // Données utilisateur
+  // User data
   const [portfolioMetrics, setPortfolioMetrics] =
     useState<hl.PortfolioPeriods | null>(null);
   const [userFunding, setUserFunding] = useState<hl.UserFundingUpdate[] | null>(
@@ -82,16 +82,16 @@ export const HyperliquidDataProvider: React.FC<
     useState<hl.PerpsClearinghouseState | null>(null);
   const [openOrders, setOpenOrders] = useState<hl.Order[] | null>(null);
 
-  // Données historiques
+  // Historical data
   const [fundingHistory, setFundingHistory] = useState<Record<
     string,
     hl.FundingHistory[]
   > | null>(null);
 
-  // Client Info
+  // Info Client
   const [infoClient, setInfoClient] = useState<hl.InfoClient | null>(null);
 
-  // Initialiser le client Info
+  // Initialize Info client
   useEffect(() => {
     const client = new hl.InfoClient({
       transport: new hl.HttpTransport({
@@ -101,7 +101,7 @@ export const HyperliquidDataProvider: React.FC<
     setInfoClient(client);
   }, [config.isTestnet]);
 
-  // Méthode pour rafraîchir les données de marché
+  // Method to refresh market data
   const refreshMarketData = useCallback(async () => {
     if (!infoClient) return;
 
@@ -123,23 +123,81 @@ export const HyperliquidDataProvider: React.FC<
       setMetaAndAssetCtxs(metaCtxData);
     } catch (err) {
       console.error(
-        "Erreur lors du rafraîchissement des données de marché:",
+        "Error refreshing market data:",
         err
       );
-      setError("Impossible de charger les données de marché");
+      setError("Unable to load market data");
     } finally {
       setIsLoading(false);
     }
   }, [infoClient]);
 
-  // Méthode pour rafraîchir les données utilisateur
+  // Method to fetch all user funding with pagination
+  const fetchAllUserFunding = useCallback(async (addressToCheck: string): Promise<hl.UserFundingUpdate[]> => {
+    if (!infoClient) return [];
+    
+    const allFunding: hl.UserFundingUpdate[] = [];
+    let startTime = new Date("2024-01-01").getTime(); // Beginning of year to fetch more history
+    const currentEndTime = Date.now();
+    const maxIterations = 50; // Protection against infinite loops
+    let iterations = 0;
+    
+    while (iterations < maxIterations) {
+      try {
+        const batch = await infoClient.userFunding({
+          user: addressToCheck as `0x${string}`,
+          startTime,
+          endTime: currentEndTime,
+        });
+        
+        console.log(`Batch ${iterations + 1}: retrieved ${batch.length} total entries`);
+        
+        if (batch.length === 0) {
+          break; // No more data to fetch
+        }
+        
+        // Add all batch data (not just funding) to maintain chronological order
+        // Filtering will be done after retrieving everything
+        allFunding.push(...batch);
+        
+        // If we have less than 500 entries, we probably retrieved everything
+        if (batch.length < 500) {
+          break;
+        }
+        
+        // Update endTime for next iteration
+        // Use timestamp of last element in this batch as endTime for next one
+        startTime = batch[batch.length - 1].time - 1;
+        iterations++;
+        
+        // Small pause to avoid overloading the API
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (err) {
+        console.error(`Error retrieving batch ${iterations + 1}:`, err);
+        break;
+      }
+    }
+    
+    // Sort by timestamp (oldest to newest) and filter only funding
+    const sortedAndFilteredFunding = allFunding
+      .filter((item) => item.delta.type === "funding")
+      .sort((a, b) => a.time - b.time);
+    
+    console.log(`Total retrieved: ${allFunding.length} entries, including ${sortedAndFilteredFunding.length} funding over ${iterations} batches`);
+    console.log(`Period covered: ${new Date(sortedAndFilteredFunding[0]?.time || 0).toLocaleDateString()} - ${new Date(sortedAndFilteredFunding[sortedAndFilteredFunding.length - 1]?.time || 0).toLocaleDateString()}`);
+    
+    return sortedAndFilteredFunding;
+  }, [infoClient]);
+
+  // Method to refresh user data
   const refreshUserData = useCallback(async () => {
-    // En mode watch, utiliser l'adresse du watch mode, sinon utiliser l'adresse configurée ou connectée
+    // In watch mode, use watch mode address, otherwise use configured or connected address
     const addressToCheck = isWatchMode ? watchAddress : (config?.subAccountAddress || address);
     
     if (!infoClient || !addressToCheck) return;
     
-    // En mode watch, on n'a pas besoin d'être connecté
+    // In watch mode, we don't need to be connected
     if (!isWatchMode && !isConnected) return;
 
     try {
@@ -152,14 +210,7 @@ export const HyperliquidDataProvider: React.FC<
           infoClient.spotClearinghouseState({ user: addressToCheck as `0x${string}` }),
           infoClient.clearinghouseState({ user: addressToCheck as `0x${string}` }),
           infoClient.openOrders({ user: addressToCheck as `0x${string}` }),
-          infoClient
-            .userFunding({
-              user: addressToCheck as `0x${string}`,
-              startTime: new Date("2025-09-01").getTime(),
-            })
-            .then((result) =>
-              result.filter((item) => item.delta.type === "funding")
-            ),
+          fetchAllUserFunding(addressToCheck),
         ]);
 
       setPortfolioMetrics(portfolioMetrics);
@@ -169,16 +220,16 @@ export const HyperliquidDataProvider: React.FC<
       setUserFunding(funding);
     } catch (err) {
       console.error(
-        "Erreur lors du rafraîchissement des données utilisateur:",
+        "Error refreshing user data:",
         err
       );
-      setError("Impossible de charger les données utilisateur");
+      setError("Unable to load user data");
     } finally {
       setIsLoading(false);
     }
-  }, [infoClient, address, isConnected, config?.subAccountAddress, isWatchMode, watchAddress]);
+  }, [infoClient, address, isConnected, config?.subAccountAddress, isWatchMode, watchAddress, fetchAllUserFunding]);
 
-  // Méthode pour rafraîchir l'historique des funding
+  // Method to refresh funding history
   const refreshFundingHistory = useCallback(
     async (coins?: string[]) => {
       if (!infoClient) return;
@@ -187,7 +238,7 @@ export const HyperliquidDataProvider: React.FC<
         setIsLoading(true);
         setError(null);
 
-        // Si aucune liste de coins fournie, utiliser les métadonnées actuelles
+        // If no coin list provided, use current metadata
         if (!coins && metaAndAssetCtxs && spotMetaAndAssetCtxs && allMids) {
           const enabledCoins = processFundingRates(
             spotMetaAndAssetCtxs,
@@ -203,12 +254,12 @@ export const HyperliquidDataProvider: React.FC<
           try {
             const history = await infoClient.fundingHistory({
               coin,
-              startTime: Date.now() - 7 * 24 * 60 * 60 * 1000, // 7 jours
+              startTime: Date.now() - 7 * 24 * 60 * 60 * 1000, // 7 days
             });
             return { coin, history };
           } catch (err) {
             console.warn(
-              `Impossible de récupérer l'historique pour ${coin}:`,
+              `Unable to retrieve history for ${coin}:`,
               err
             );
             return { coin, history: [] };
@@ -224,10 +275,10 @@ export const HyperliquidDataProvider: React.FC<
         setFundingHistory(historyMap);
       } catch (err) {
         console.error(
-          "Erreur lors du rafraîchissement de l'historique des funding:",
+          "Error refreshing funding history:",
           err
         );
-        setError("Impossible de charger l'historique des funding");
+        setError("Unable to load funding history");
       } finally {
         setIsLoading(false);
       }
@@ -235,7 +286,7 @@ export const HyperliquidDataProvider: React.FC<
     [infoClient, metaAndAssetCtxs, spotMetaAndAssetCtxs, allMids]
   );
 
-  // Méthode pour rafraîchir toutes les données
+  // Method to refresh all data
   const refreshAllData = useCallback(async () => {
     await Promise.all([
       refreshMarketData(),
@@ -244,17 +295,17 @@ export const HyperliquidDataProvider: React.FC<
     ]);
   }, [refreshMarketData, refreshUserData, refreshFundingHistory]);
 
-  // Rafraîchir les données de marché au chargement et quand le client change
+  // Refresh market data on load and when client changes
   useEffect(() => {
     refreshMarketData();
   }, [refreshMarketData]);
 
-  // Rafraîchir les données utilisateur quand l'utilisateur se connecte
+  // Refresh user data when user connects
   useEffect(() => {
     if (isConnected && address) {
       refreshUserData();
     } else {
-      // Réinitialiser les données utilisateur quand déconnecté
+      // Reset user data when disconnected
       setPortfolioMetrics(null);
       setUserFunding(null);
       setSpotClearinghouseState(null);
@@ -263,7 +314,7 @@ export const HyperliquidDataProvider: React.FC<
     }
   }, [refreshUserData, isConnected, address]);
 
-  // Rafraîchir l'historique des funding quand les métadonnées sont disponibles
+  // Refresh funding history when metadata is available
   useEffect(() => {
     if (metaAndAssetCtxs) {
       refreshFundingHistory();

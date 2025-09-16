@@ -16,6 +16,7 @@ import {PositionsWidget} from "../components/PositionsWidget";
 import { useWatchMode } from "../hooks/useWatchMode";
 import WatchModeInput from "../components/WatchModeInput";
 import AccountIndicator from "../components/AccountIndicator";
+import FundingDetailsAccordion from "../components/FundingDetailsAccordion";
 
 const PositionsPage: React.FC = () => {
   const { address, openConnectModal } = useWallet();
@@ -27,7 +28,7 @@ const PositionsPage: React.FC = () => {
     isLoading: loading,
     totalAccountValueUSD,
     accountPnl,
-    raw: { portfolioMetrics, spotClearinghouseState, clearinghouseState },
+    raw: { portfolioMetrics, spotClearinghouseState, clearinghouseState, userFunding },
     refreshUserData,
   } = useHyperliquidProcessedData();
   const { config } = useHyperliquidConfig();
@@ -337,6 +338,15 @@ const PositionsPage: React.FC = () => {
           className="mb-6"
         />
       )}
+
+      {/* Funding Details Accordion */}
+      {userFunding && userFunding.length > 0 && (
+        <FundingDetailsAccordion 
+          userFunding={userFunding} 
+          className="mb-6" 
+        />
+      )}
+
 
       {/* Position Widget */}
       <PositionsWidget
