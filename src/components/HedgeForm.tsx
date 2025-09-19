@@ -73,6 +73,20 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
     if (leverage > perpToken.maxLeverage) setLeverage(perpToken.maxLeverage);
   }, [selectedMarket?.perpIndex, metaAndAssetCtxs, leverage]);
 
+  // use usdcReserves to limit max hedge value
+  useEffect(() => {
+    if (isConnected === false) return;
+    if (isOpen === false) return;
+    if (!spotClearinghouseState || !clearinghouseState) return;
+    // get total usdc available (spot + perp)
+    const spotUSDC =
+      spotClearinghouseState?.balances.find((b) => b.coin === "USDC")?.total ||
+      "0";
+    const perpUSDC = clearinghouseState?.withdrawable || "0";
+    const totalUsdc = Number(spotUSDC) + Number(perpUSDC);
+    setHedgeValue(Math.floor(totalUsdc).toFixed(0));
+  }, [spotClearinghouseState, clearinghouseState, isOpen, isConnected]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
