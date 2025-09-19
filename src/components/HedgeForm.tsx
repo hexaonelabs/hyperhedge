@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   X,
   TrendingDown,
@@ -16,7 +16,10 @@ import { useNotification } from "../hooks/useNotification";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
 import { SecureKeyManager } from "../utils/SecureKeyManager";
 import { useHyperliquidData } from "../hooks/useHyperliquidData";
-import { calculateHedgeStrategy, HedgeCalculation } from "../utils/hedgeCalculations";
+import {
+  calculateHedgeStrategy,
+  HedgeCalculation,
+} from "../utils/hedgeCalculations";
 
 interface HedgeFormProps {
   isOpen: boolean;
@@ -31,6 +34,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
 }) => {
   const [hedgeValue, setHedgeValue] = useState<string>("1000");
   const [leverage, setLeverage] = useState<number>(1);
+  const [maxLeverage, setMaxLeverage] = useState<number>(3);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLiquidationAnalysisOpen, setIsLiquidationAnalysisOpen] =
     useState(false);
@@ -50,8 +54,24 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
     const currentPrice = selectedMarket?.markPrice || 0;
     const fundingRate = selectedMarket?.fundingRate || 0;
 
-    return calculateHedgeStrategy(hedgeAmount, leverage, currentPrice, fundingRate);
+    return calculateHedgeStrategy(
+      hedgeAmount,
+      leverage,
+      currentPrice,
+      fundingRate
+    );
   }, [hedgeValue, leverage, selectedMarket]);
+
+  // effect to set leverage max value
+  useEffect(()=> {
+    if (!selectedMarket?.perpIndex || !metaAndAssetCtxs) return;
+
+    const perpToken = metaAndAssetCtxs[0].universe.at(selectedMarket.perpIndex);
+    if (!perpToken) return;
+
+    setMaxLeverage(perpToken.maxLeverage);
+    if (leverage > perpToken.maxLeverage) setLeverage(perpToken.maxLeverage);
+  }, [selectedMarket?.perpIndex, metaAndAssetCtxs, leverage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -286,15 +306,15 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                 <input
                   type="range"
                   min="1"
-                  max="50"
+                  max={maxLeverage}
                   value={leverage}
                   onChange={(e) => setLeverage(parseInt(e.target.value))}
                   className="w-full h-2 bg-dark-700 rounded-lg appearance-none cursor-pointer slider"
                 />
                 <div className="flex justify-between text-xs text-dark-400">
                   <span>1x (Safe)</span>
-                  <span>25x</span>
-                  <span>50x (Risky)</span>
+                  <span>{maxLeverage/2}x</span>
+                  <span>{maxLeverage}x (Risky)</span>
                 </div>
               </div>
               <p className="text-xs text-dark-400 mt-1">
