@@ -136,6 +136,7 @@ export interface PositionAdjustment {
   symbol: string;
   spotAdjustment: number; // Positive = acheter, négatif = vendre
   perpAdjustment: number; // Positive = augmenter short, négatif = diminuer short
+  targetPerpLeverage: number; // Nouvelle valeur de levier si ajustement de levier
   targetSpotBalance: number;
   targetPerpPosition: number;
   liquidationPrice: number;
@@ -196,6 +197,7 @@ export const calculateSpotPositionAdjustment = (
 export const calculatePositionAdjustment = (
   currentPosition: HedgePositionSummary,
   targetAllocationPercent: number,
+  targetPerpLeverage: number,
   totalPortfolioValue: number,
   currentPrice: number
 ): PositionAdjustment => {
@@ -211,14 +213,14 @@ export const calculatePositionAdjustment = (
   const targetValue = (targetAllocationPercent / 100) * totalPortfolioValue;
   
   // Calculer la nouvelle répartition avec le même levier
-  const leverage = currentPosition.leverage;
+  const leverage = targetPerpLeverage || currentPosition.leverage;
   const targetBreakdown = calculateHedgePositionFromAllocation(
     targetAllocationPercent,
     totalPortfolioValue,
     currentPrice,
     leverage
   );
-
+console.log('Target Breakdown:', targetBreakdown);
   // Calculer les ajustements nécessaires
   const spotAdjustment = targetBreakdown.spotBalance - currentPosition.spotBalance;
   const perpAdjustment = targetBreakdown.perpPosition - currentPosition.perpPosition;
@@ -244,5 +246,6 @@ export const calculatePositionAdjustment = (
     targetPerpPosition: targetBreakdown.perpPosition,
     adjustmentType,
     liquidationPrice,
+    targetPerpLeverage: leverage,
   };
 };

@@ -101,7 +101,6 @@ const checkAndTransferUSDC = async (
   // Execute transfers if necessary
   if (transfers.length > 0) {
     console.log("Required USDC transfers:", transfers);
-
     for (const transfer of transfers) {
       try {
         console.log(
@@ -112,9 +111,9 @@ const checkAndTransferUSDC = async (
         await transferUSDC(exchangeClient, transfer.to, transfer.amount);
       } catch (error) {
         throw new Error(
-          `USDC transfer failed: ${
+          `USDC transfer amount $${transfer.amount.toFixed(2)} to ${transfer.to} failed. ${
             error instanceof Error ? error.message : "Unknown error"
-          }`
+          }. Try again or transfer manually via Hyperliquid interface.`
         );
       }
     }
@@ -483,20 +482,23 @@ const updateHedgePosition = async (
 
   // Check and transfer USDC if needed for adjustments
   if (totalRequiredSpotUSDC > 0 || totalRequiredPerpsUSDC > 0) {
-    const transferResult = await checkAndTransferUSDC(
-      exchangeClient,
-      { perpsUSDC, spotUSDC },
-      {
-        requiredPerpsUSDC: totalRequiredPerpsUSDC,
-        requiredSpotUSDC: totalRequiredSpotUSDC,
-      }
-    );
-
-    console.log("USDC balance check for adjustments completed:", {
-      transfersExecuted: transferResult.transfersExecuted,
-      transfers: transferResult.transfers,
-      finalBalances: transferResult.finalBalances,
-    });
+    try {
+      const transferResult = await checkAndTransferUSDC(
+        exchangeClient,
+        { perpsUSDC, spotUSDC },
+        {
+          requiredPerpsUSDC: totalRequiredPerpsUSDC,
+          requiredSpotUSDC: totalRequiredSpotUSDC,
+        }
+      );
+      console.log("USDC balance check for adjustments completed:", {
+        transfersExecuted: transferResult.transfersExecuted,
+        transfers: transferResult.transfers,
+        finalBalances: transferResult.finalBalances,
+      });
+    } catch (error: any) {
+      throw new Error(error.message || "Error transferring USDC");
+    }
   }
 
   const results = [];
@@ -574,8 +576,28 @@ const updateHedgePosition = async (
         }
         return strValue;
       };
+      const currentLeverage = clearinghouseState.assetPositions.find((pos) =>
+        pos.position.coin.includes(adjustment.symbol)
+      )?.position?.leverage?.value;
 
       const orders = [];
+
+      // Ajustment Margin and leverage 
+      if (adjustment.targetPerpLeverage !== currentLeverage) {
+        await updatePositionLeverage(
+          exchangeClient,
+          {
+            leverageUpdate: {
+              symbol: adjustment.symbol,
+              newLeverage: adjustment.targetPerpLeverage,
+            }
+          },
+          {
+            metaAndAssetCtxs: contextData.metaAndAssetCtxs,
+            clearinghouseState: contextData.clearinghouseState,
+          }
+        );
+      }
 
       // Ajuster la position spot si nécessaire
       if (Math.abs(adjustment.spotAdjustment) > 0.001) {
@@ -670,6 +692,106 @@ const updateHedgePosition = async (
     results,
     totalAdjustments: ops.adjustments.length,
     successfulAdjustments: results.filter((r) => r.success).length,
+  };
+};
+
+/**
+ * Function to update leverage for multiple positions using `updateIsolatedMargin` method to optimize USDC usage.
+ * @param privateKey - The private key of the user's wallet.
+ * @param ops - An object containing leverage updates, sub-account address, and testnet flag.
+ * @param contextData - Preloaded context data including meta and asset contexts and clearinghouse state.
+ * @returns An object with results of leverage updates, total updates, and successful updates count.
+ */
+const updatePositionLeverage = async (
+  exchangeClient: hl.ExchangeClient,
+  ops: {
+    leverageUpdate: {
+      symbol: string;
+      newLeverage: number;
+    };
+  },
+  contextData: {
+    metaAndAssetCtxs: hl.PerpsMetaAndAssetCtxs;
+    clearinghouseState: hl.PerpsClearinghouseState;
+  }
+) => {
+
+  const { metaAndAssetCtxs } = contextData;
+  const results = [];
+
+  const update = ops.leverageUpdate;
+    try {
+      const perpsAssets = metaAndAssetCtxs;
+      const perpsAssetIndex = perpsAssets[0].universe.findIndex((a) =>
+        a.name.includes(update.symbol)
+      );
+      if (perpsAssetIndex === -1) {
+        throw new Error(`Perpetual token not found for ${update.symbol}`);
+      }
+      // check margin requirements before updating leverage
+      const currentPerpPosition = contextData.clearinghouseState.assetPositions.find(
+        (pos) => pos.position.coin.includes(update.symbol)
+      );
+      if (!currentPerpPosition) {
+        throw new Error(
+          `No existing position found for ${update.symbol}, cannot update leverage.`
+        );
+      }
+      const differenceValueUSD = (+currentPerpPosition.position.positionValue / update.newLeverage) - Number(currentPerpPosition.position.marginUsed);
+      const ntli = Number(differenceValueUSD.toFixed(0)) * 1e6; // convert to microunits
+      console.log(`Leverage update for ${update.symbol}: current leverage ${currentPerpPosition.position.leverage.value}, new leverage ${update.newLeverage}, margin change USD: ${differenceValueUSD}, ntli: ${ntli}`);
+      // if we need to increase margin, check if we have enough USDC in clearinghouse
+      if (differenceValueUSD > 0) {
+        // incrase margin
+        const availableUSDC = Number(contextData.clearinghouseState.withdrawable);
+        if (availableUSDC < differenceValueUSD) {
+          // use transferUSDC function to transfer from spot to perps if needed
+          await transferUSDC(exchangeClient, 'perp', differenceValueUSD);
+        }
+        // update margin
+        await exchangeClient.updateIsolatedMargin({
+          asset: perpsAssetIndex,
+          isBuy: true,
+          ntli,
+        });
+      }
+      // if we reach here, it means we can safely update leverage
+      console.log(`Updating leverage for ${update.symbol} to ${update.newLeverage}`);
+      // then update leverage
+      await exchangeClient.updateLeverage({
+        asset: perpsAssetIndex,
+        isCross: false,
+        leverage: update.newLeverage,
+      });
+      // finally, if we decreased leverage, we can decrease margin to free up USDC
+      if (differenceValueUSD < 0) {
+        // decrease margin
+        await exchangeClient.updateIsolatedMargin({
+          asset: perpsAssetIndex,
+          isBuy: false,
+          ntli,
+        });
+      }
+      // if we reach here, everything went fine
+      results.push({
+        symbol: update.symbol,
+        adjustmentType: "leverage",
+        orders: [],
+        success: true,
+      }); 
+    } catch (error) {
+      console.error(`Error preparing leverage update for ${update.symbol}:`, error);
+      results.push({
+        symbol: update.symbol,
+        adjustmentType: "leverage",
+        orders: [],
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+
+  return {
+    result: results[0] || null,
   };
 };
 

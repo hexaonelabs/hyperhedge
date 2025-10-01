@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { BarChart3, Save, X, AlertCircle, Activity, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import HedgedPositionCard from "./HedgedPositionCard";
@@ -19,6 +19,7 @@ import { useHyperliquidData } from "../hooks/useHyperliquidData";
 import { SecureKeyManager } from "../utils/SecureKeyManager";
 import * as hl from "@nktkas/hyperliquid";
 import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
+import { ConfirmationModal } from "./AdjusmentsConfirmationModal";
 
 // interface UnhedgedPosition {
 //   symbol: string;
@@ -52,6 +53,10 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   const [allocationChanges, setAllocationChanges] = useState<
     Record<string, number>
   >({});
+  // state pour gérer les changement de levierage
+  const [leverageChanges, setLeverageChanges] = useState<
+    Record<string, number>
+  >({});
   const [hedgeSelections, setHedgeSelections] = useState<
     Record<string, boolean>
   >({});
@@ -59,6 +64,8 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   const [resetTrigger, setResetTrigger] = useState(0);
   const [isResetting, setIsResetting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingAdjustments, setPendingAdjustments] = useState<PositionAdjustment[]>([]);
 
   // Hooks nécessaires pour les transactions
   const { isConnected, signStringMessage } = useWallet();
@@ -75,7 +82,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   const { getTokenSpotPrice } = useHyperliquidProcessedData();
 
   // Notifier le parent quand hasUnsavedChanges change
-  React.useEffect(() => {
+  useEffect(() => {
     if (onUnsavedChanges) {
       onUnsavedChanges(hasUnsavedChanges);
     }
@@ -178,6 +185,34 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
     setHasUnsavedChanges(hasAllocationChanges || hasHedgeChanges);
   };
 
+  // manage leverage changes
+  const handleLeverageChange = (symbol: string, leverage: number) => {
+    if (isResetting) return;
+    console.log(`Leverage change for ${symbol}: ${leverage}x`);
+
+    // Mettre à jour les changements de levier
+    const newLeverageChanges = { ...leverageChanges, [symbol]: leverage };
+    setLeverageChanges(newLeverageChanges);
+
+    // Vérifier s'il y a des changements non sauvegardés
+    const hasLeverageChanges = Object.keys(newLeverageChanges).some(sym => {
+      const pos = hedgedPositions.find(p => p.symbol === sym);
+      const currentLeverage = pos?.leverage || 1;
+      return Math.abs(newLeverageChanges[sym] - currentLeverage) > 0.1;
+    });
+
+    const hasAllocationChanges = Object.keys(allocationChanges).some(sym => {
+      const position = hedgedPositions.find(p => p.symbol === sym) || unhedgedPositions.find(p => p.symbol === sym);
+      const positionValue = position ? getPositionValue(position) : 0;
+      const initialAllocation = totalAccountValueUSD > 0 ? (positionValue / totalAccountValueUSD) * 100 : 0;
+      return Math.abs(allocationChanges[sym] - initialAllocation) > 1;
+    });
+
+    const hasHedgeChanges = Object.values(hedgeSelections).some(selected => selected);
+    setHasUnsavedChanges(hasLeverageChanges || hasAllocationChanges || hasHedgeChanges);
+
+  };
+
   // Gérer la sélection de hedge
   const handleHedgeToggle = (symbol: string, shouldHedge: boolean) => {
     if (isResetting) return;
@@ -249,102 +284,14 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   const totalAllocation = getTotalPositionsAllocation();
   const isOverAllocated = totalAllocation > 100;
 
-  // Mettre à jour la stratégie
-  const handleUpdateStrategy = async () => {
-    console.log("Updating strategy with changes:", allocationChanges);
-
+  const executeAdjustments = async (adjustments: PositionAdjustment[]) => {
     try {
       setIsSubmitting(true);
       showLoading();
-
-      if (!config) {
-        showError("Configuration is not set");
-        return;
-      }
-      if (!config.apiWalletPrivateKey) {
-        throw new Error("Missing API wallet private key");
-      }
-      if (!isConnected) {
-        showError("Wallet is not connected");
-        return;
+      if (!config?.apiWalletPrivateKey || !isConnected) {
+        throw new Error("Configuration or wallet connection missing");
       }
 
-      // Calculer les ajustements nécessaires pour chaque position modifiée
-      const adjustments: PositionAdjustment[] = [];
-
-      // Traiter les positions hedgées modifiées
-      hedgedPositions.forEach((position) => {
-        const newAllocation = allocationChanges[position.symbol];
-        if (newAllocation !== undefined) {
-          const currentPrice = getCurrentPrice(
-            position.perpValueUSD,
-            position.perpPosition
-          );
-          const adjustment = calculatePositionAdjustment(
-            position,
-            newAllocation,
-            totalAccountValueUSD,
-            currentPrice
-          );
-          adjustments.push(adjustment);
-        }
-      });
-
-      // Traiter les positions non hedgées modifiées (si applicable)
-      unhedgedPositions.forEach((position) => {
-        const newAllocation = allocationChanges[position.symbol];
-        if (newAllocation !== undefined) {
-          const currentPrice = getCurrentPrice(
-            position.valueUSD,
-            position.balance
-          );
-          // is unhedged position toggle to be hedged from `hedgeSelections`
-          const isUnhedgedToHedged = hedgeSelections[position.symbol] === true;
-          if (isUnhedgedToHedged) {
-            const adjustment = calculatePositionAdjustment(
-              {
-                leverage: 1,
-                liquidationPx: 0,
-                margin: 0,
-                perpPosition: 0,
-                perpValueUSD: 0,
-                spotBalance: position.balance,
-                symbol: position.symbol,
-                status: "",
-              },
-              newAllocation,
-              totalAccountValueUSD,
-              currentPrice
-            );
-            adjustments.push(adjustment);
-          } else {
-            // Pour les positions spot sans hedge, utiliser la nouvelle fonction
-            const spotAdjustment = calculateSpotPositionAdjustment(
-              position.symbol,
-              position.balance,
-              position.valueUSD,
-              newAllocation,
-              totalAccountValueUSD,
-              currentPrice
-            );
-            // Convertir en PositionAdjustment pour compatibilité
-            const adjustment: PositionAdjustment = {
-              ...spotAdjustment,
-              adjustmentType: spotAdjustment.adjustmentType as 'increase' | 'decrease' | 'rebalance',
-              perpAdjustment: 0, // Pas d'ajustement perp pour position spot pure
-              targetPerpPosition: 0,
-              liquidationPrice: 0, // Pas de liquidation pour position spot
-            };
-            adjustments.push(adjustment);
-          }
-        }
-      });
-
-      if (adjustments.length === 0) {
-        showError("No adjustments needed");
-        return;
-      }
-      console.log('>>', adjustments);
       // Décrypter la clé privée
       const signature = await signStringMessage("HyperHedge-Config-Encrypt");
       const apiWalletPrivateKey = await SecureKeyManager.decrypt(
@@ -415,11 +362,23 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
 
         // Réinitialiser les changements pour les positions mises à jour avec succès
         const newChanges = { ...allocationChanges };
+        const newLeverageChanges = { ...leverageChanges };
+        const newHedgeSelections = { ...hedgeSelections };
+        
         successfulAdjustments.forEach((adj) => {
           delete newChanges[adj.symbol];
+          delete newLeverageChanges[adj.symbol];
+          delete newHedgeSelections[adj.symbol];
         });
+        
         setAllocationChanges(newChanges);
-        setHasUnsavedChanges(Object.keys(newChanges).length > 0);
+        setLeverageChanges(newLeverageChanges);
+        setHedgeSelections(newHedgeSelections);
+        setHasUnsavedChanges(
+          Object.keys(newChanges).length > 0 || 
+          Object.keys(newLeverageChanges).length > 0 ||
+          Object.values(newHedgeSelections).some(selected => selected)
+        );
       }
 
       if (failedAdjustments.length > 0) {
@@ -451,10 +410,144 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
     }
   };
 
+  const handleConfirmAdjustments = async () => {
+    setShowConfirmModal(false);
+    await executeAdjustments(pendingAdjustments);
+    setPendingAdjustments([]);
+  };
+
+  const handleCancelConfirmation = () => {
+    setShowConfirmModal(false);
+    setPendingAdjustments([]);
+    setIsSubmitting(false);
+  };
+
+  // Mettre à jour la stratégie
+  const handleUpdateStrategy = async () => {
+    console.log("Updating strategy with changes:", allocationChanges);
+
+    try {
+      if (!config) {
+        showError("Configuration is not set");
+        return;
+      }
+      if (!config.apiWalletPrivateKey) {
+        throw new Error("Missing API wallet private key");
+      }
+      if (!isConnected) {
+        showError("Wallet is not connected");
+        return;
+      }
+
+      // Calculer les ajustements nécessaires pour chaque position modifiée
+      const adjustments: PositionAdjustment[] = [];
+
+      // Traiter les positions hedgées modifiées
+      hedgedPositions.forEach((position) => {
+        const newAllocation = allocationChanges[position.symbol];
+        const newLeverage = leverageChanges[position.symbol];
+        // console.log('Processing hedged position:',{ position, newLeverage, leverageChanges});
+        if (newAllocation !== undefined || newLeverage !== undefined) {
+          const currentPrice = getCurrentPrice(
+            position.perpValueUSD,
+            position.perpPosition
+          );
+          const currentAllocation = totalAccountValueUSD > 0 ? ((position.margin +( position.spotBalance * currentPrice ) ) / totalAccountValueUSD) * 100 : 0;
+          console.log(`Current allocation for ${position.symbol}: ${currentAllocation.toFixed(2)}% and new allocation: ${newAllocation}%`, position);
+          const currentLeverage = position.leverage ?? 1;
+          // console.log(`Current leverage for ${position.symbol}: ${currentLeverage}x and new leverage: ${newLeverage}x`);
+          const adjustment = calculatePositionAdjustment(
+            position,
+            newAllocation ?? currentAllocation,
+            newLeverage ?? currentLeverage,
+            totalAccountValueUSD,
+            currentPrice
+          );
+          adjustments.push(adjustment);
+        }
+      });
+
+      // Traiter les positions non hedgées modifiées (si applicable)
+      unhedgedPositions.forEach((position) => {
+        const newAllocation = allocationChanges[position.symbol];
+        const newLeverage = leverageChanges[position.symbol];
+        if (newAllocation !== undefined) {
+          const currentPrice = getCurrentPrice(
+            position.valueUSD,
+            position.balance
+          );
+          const currentLeverage = 1;
+          const currentAllocation = totalAccountValueUSD > 0 ? (position.valueUSD  / totalAccountValueUSD) * 100 : 0;
+          
+          // is unhedged position toggle to be hedged from `hedgeSelections`
+          const isUnhedgedToHedged = hedgeSelections[position.symbol] === true;
+          if (isUnhedgedToHedged) {
+            const adjustment = calculatePositionAdjustment(
+              {
+                leverage: 1,
+                liquidationPx: 0,
+                margin: 0,
+                perpPosition: 0,
+                perpValueUSD: 0,
+                spotBalance: position.balance,
+                symbol: position.symbol,
+                status: "",
+              },
+              newAllocation ?? currentAllocation,
+              newLeverage ?? currentLeverage, // Default leverage for new hedge
+              totalAccountValueUSD,
+              currentPrice
+            );
+            adjustments.push(adjustment);
+          } else {
+            // Pour les positions spot sans hedge, utiliser la nouvelle fonction
+            const spotAdjustment = calculateSpotPositionAdjustment(
+              position.symbol,
+              position.balance,
+              position.valueUSD,
+              newAllocation,
+              totalAccountValueUSD,
+              currentPrice
+            );
+            // Convertir en PositionAdjustment pour compatibilité
+            const adjustment: PositionAdjustment = {
+              ...spotAdjustment,
+              adjustmentType: spotAdjustment.adjustmentType as 'increase' | 'decrease' | 'rebalance',
+              perpAdjustment: 0, // Pas d'ajustement perp pour position spot pure
+              targetPerpPosition: 0,
+              targetPerpLeverage: 0,
+              liquidationPrice: 0, // Pas de liquidation pour position spot
+            };
+            adjustments.push(adjustment);
+          }
+        }
+      });
+
+      console.log('>>', adjustments);
+      // throw new Error("Debug: Stop execution");
+      if (adjustments.length === 0) {
+        showError("No adjustments needed");
+        return;
+      }
+
+      // display modal confirmation details ajusments
+      setPendingAdjustments(adjustments);
+      setShowConfirmModal(true);
+     
+    } catch (error: unknown) {
+      console.error("Error updating strategy:", error);
+      console.error("Error preparing strategy update:", error);
+      showError("Failed to prepare strategy update");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Annuler les changements
   const handleCancelChanges = () => {
     setIsResetting(true);
     setAllocationChanges({});
+    setLeverageChanges({});
     setHedgeSelections({});
     setHasUnsavedChanges(false);
     setResetTrigger((prev) => prev + 1);
@@ -552,7 +645,9 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
                     position={position}
                     totalPortfolioValue={totalAccountValueUSD}
                     onAllocationChange={handleAllocationChange}
+                    onLeverageChange={handleLeverageChange}
                     currentAllocation={allocationChanges[position.symbol]}
+                    currentLeverage={leverageChanges[position.symbol]}
                     resetTrigger={resetTrigger}
                     totalAllocation={totalAllocation}
                     disabled={isWatchMode}
@@ -708,6 +803,15 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
           </div>
         )}
       </div>
+
+      {/* Modal de confirmation */}
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        adjustments={pendingAdjustments}
+        isSubmitting={isSubmitting}
+        onConfirm={handleConfirmAdjustments}
+        onCancel={handleCancelConfirmation}
+      />
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Shield, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { HedgePositionSummary } from "../types";
 import { 
@@ -12,7 +12,9 @@ interface HedgedPositionCardProps {
   position: HedgePositionSummary;
   totalPortfolioValue: number;
   onAllocationChange: (symbol: string, percentage: number) => void;
+  onLeverageChange: (symbol: string, leverage: number) => void;
   currentAllocation?: number;
+  currentLeverage?: number;
   resetTrigger?: number;
   totalAllocation?: number;
   className?: string;
@@ -23,7 +25,9 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
   position,
   totalPortfolioValue,
   onAllocationChange,
+  onLeverageChange,
   currentAllocation,
+  currentLeverage,
   resetTrigger,
   totalAllocation,
   className = "",
@@ -46,28 +50,45 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
   const [sliderValue, setSliderValue] = useState(currentAllocation !== undefined ? currentAllocation : initialAllocation);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const [leverageValue, setLeverageValue] = useState(
+    currentLeverage !== undefined ? currentLeverage : position.leverage
+  );  
+  const leverageOptions = [1, 2, 3];
+
   // Calculate dynamic values based on slider allocation
   const currentPrice = getCurrentPrice(position.perpValueUSD, position.perpPosition);
   const dynamicPositionBreakdown = calculateHedgePositionFromAllocation(
     sliderValue,
     totalPortfolioValue,
     currentPrice,
-    position.leverage
+    leverageValue
   );
 
   // Update slider when currentAllocation changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentAllocation !== undefined) {
       setSliderValue(currentAllocation);
     }
   }, [currentAllocation]);
 
+  useEffect(() => {
+    if (currentLeverage !== undefined) {
+      setLeverageValue(currentLeverage);
+    }
+  }, [currentLeverage]);
+
   // Reset to initial allocation when resetTrigger changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (resetTrigger !== undefined) {
       setSliderValue(initialAllocation);
     }
   }, [resetTrigger, initialAllocation]);
+  // Reset leverage to initial value when resetTrigger changes
+  useEffect(() => {
+    if (resetTrigger !== undefined) {
+      setLeverageValue(position.leverage);
+    }
+  }, [resetTrigger, position.leverage]);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return;
@@ -77,8 +98,18 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
     onAllocationChange(position.symbol, newValue);
   };
 
+  const handleLeverageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (disabled) return;
+    
+    const newValue = parseInt(e.target.value);
+    setLeverageValue(newValue);
+    onLeverageChange(position.symbol, newValue);
+  };
+
   // Check if allocation has changed
-  const hasChanged = Math.abs(sliderValue - initialAllocation) > 0.1; // Plus sensible: 0.1% au lieu de 1%
+  const hasLeverageChanged = Math.abs(leverageValue - position.leverage) > 0.1;
+  const hasAllocationChanged = Math.abs(sliderValue - initialAllocation) > 0.1;
+  const hasChanged = hasAllocationChanged || hasLeverageChanged;
   const isOverAllocated = totalAllocation !== undefined && totalAllocation > 100;
 
   return (
@@ -126,8 +157,8 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
           
           {/* Position Value - Desktop */}
           <div className="text-right min-w-[120px]">
-            <div className="text-white font-medium text-sm">${positionValueUSD.toFixed(2)}</div>
-            {hasChanged && (
+            <div className="text-white font-medium text-sm">${positionValueRequied.toFixed(2)}</div>
+            {hasChanged && hasAllocationChanged && positionValueRequied !== dynamicPositionBreakdown.totalValue && (
               <div className="text-orange-400 text-xs font-medium">
                 → ${dynamicPositionBreakdown.totalValue.toFixed(2)}
               </div>
@@ -160,8 +191,8 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
             
             {/* Position Value - Mobile/Tablet */}
             <div className="text-right min-w-[120px]">
-              <div className="text-white font-medium text-sm">${positionValueUSD.toFixed(2)}</div>
-              {hasChanged && (
+              <div className="text-white font-medium text-sm">${positionValueRequied.toFixed(2)}</div>
+              {hasChanged && positionValueRequied !== dynamicPositionBreakdown.totalValue && (
                 <div className="text-orange-400 text-xs font-medium">
                   → ${dynamicPositionBreakdown.totalValue.toFixed(2)}
                 </div>
@@ -256,7 +287,23 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
               </div>
               <div>
                 <p className="text-dark-400 text-xs mb-1">Leverage</p>
-                <p className="text-white font-medium">{position.leverage.toFixed(0)}x</p>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={leverageValue}
+                    onChange={(e) =>handleLeverageChange(e)}
+                    disabled={disabled}
+                    className={`bg-dark-600 border border-dark-500 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary-400 transition-colors ${
+                      disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-dark-400'
+                    } ${hasLeverageChanged ? 'border-orange-400 bg-orange-500/10' : ''}`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {leverageOptions.map((option) => (
+                      <option key={option} value={option} className="bg-dark-600">
+                        {option}x
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div>
                 <p className="text-dark-400 text-xs mb-1">Margin Value USD</p>
@@ -272,14 +319,26 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
             </div>
 
             {/* Additional Details */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-dark-400">Allocated Capital USD</span>
                 <div className="flex flex-col items-end">
                   <p className="text-white font-medium">${positionValueRequied.toFixed(2)}</p>
+                  {hasChanged && hasAllocationChanged && (
+                    <p className="text-orange-400 text-xs">
+                      → ${(dynamicPositionBreakdown.spotValue + dynamicPositionBreakdown.margin).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-dark-400">Position Value USD</span>
+                <div className="flex flex-col items-end">
+                  <p className="text-white font-medium">${positionValueUSD.toFixed(2)}</p>
                   {hasChanged && (
                     <p className="text-orange-400 text-xs">
-                      → ${(dynamicPositionBreakdown.totalValue + dynamicPositionBreakdown.margin).toFixed(2)}
+                      → ${(dynamicPositionBreakdown.spotValue + dynamicPositionBreakdown.perpValue).toFixed(2)}
                     </p>
                   )}
                 </div>
@@ -299,6 +358,12 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
                       ({(((position.liquidationPx - currentPrice) / currentPrice) * 100).toFixed(1)}%)
                     </span>
                   </div>
+                  {hasChanged && (
+                    <p className="text-orange-400 text-xs">
+                      → ${isNaN(dynamicPositionBreakdown.liquidationPrice) ? '0 ' : dynamicPositionBreakdown.liquidationPrice.toFixed(2)} 
+                      ({isNaN(dynamicPositionBreakdown.liquidationPrice) ? '0' : ( ((dynamicPositionBreakdown.liquidationPrice - currentPrice) / currentPrice) * 100).toFixed(1)}%)
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -310,9 +375,18 @@ const HedgedPositionCard: React.FC<HedgedPositionCardProps> = ({
                   <AlertCircle className="w-4 h-4 text-orange-400" />
                   <span className="text-orange-400 text-sm font-medium">Position Modified</span>
                 </div>
-                <span className="text-xs text-orange-400 font-medium">
-                  {initialAllocation.toFixed(1)}% → {sliderValue.toFixed(1)}%
-                </span>
+                <div className="text-right">
+                  {hasAllocationChanged && (
+                    <div className="text-xs text-orange-400 font-medium">
+                      Allocation: {initialAllocation.toFixed(1)}% → {sliderValue.toFixed(1)}%
+                    </div>
+                  )}
+                  {hasLeverageChanged && (
+                    <div className="text-xs text-orange-400 font-medium">
+                      Leverage: {position.leverage}x → {leverageValue}x
+                    </div>
+                  )}
+                </div>
               </div>
             )}
             
