@@ -21,6 +21,7 @@ export const useHyperliquidProcessedData = () => {
     // account data
     portfolioMetrics,
     userFunding,
+    nonFundingUpdates,
     spotClearinghouseState,
     clearinghouseState,
     openOrders,
@@ -126,6 +127,7 @@ export const useHyperliquidProcessedData = () => {
       metaAndAssetCtxs,
       portfolioMetrics,
       userFunding,
+      nonFundingUpdates,
       spotClearinghouseState,
       clearinghouseState,
       openOrders,

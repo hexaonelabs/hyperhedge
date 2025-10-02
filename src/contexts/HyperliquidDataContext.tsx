@@ -26,6 +26,7 @@ export interface HyperliquidDataContextType {
   // User data
   portfolioMetrics: hl.PortfolioPeriods | null;
   userFunding: hl.UserFundingUpdate[] | null;
+  nonFundingUpdates: hl.UserNonFundingLedgerUpdate[] | null;
   spotClearinghouseState: hl.SpotClearinghouseState | null;
   clearinghouseState: hl.PerpsClearinghouseState | null;
   openOrders: hl.Order[] | null;
@@ -76,6 +77,7 @@ export const HyperliquidDataProvider: React.FC<
   const [userFunding, setUserFunding] = useState<hl.UserFundingUpdate[] | null>(
     null
   );
+  const [nonFundingUpdates, setNonFundingUpdates] = useState<hl.UserNonFundingLedgerUpdate[] | null>(null);
   const [spotClearinghouseState, setSpotClearinghouseState] =
     useState<hl.SpotClearinghouseState | null>(null);
   const [clearinghouseState, setClearinghouseState] =
@@ -190,6 +192,55 @@ export const HyperliquidDataProvider: React.FC<
     return sortedAndFilteredFunding;
   }, [infoClient]);
 
+  // Method to fetch all `userNonFundingLedgerUpdates` with pagination
+  const fetchAllUserNonFundingLedgerUpdates = useCallback(async (addressToCheck: string): Promise<hl.UserNonFundingLedgerUpdate[]> => {
+     if (!infoClient) return [];
+     const allUpdates: hl.UserNonFundingLedgerUpdate[] = [];
+     let startTime = new Date("2024-01-01").getTime(); // Beginning of year to fetch more history
+     const currentEndTime = Date.now();
+     const maxIterations = 50; // Protection against infinite loops
+     let iterations = 0;
+
+     while (iterations < maxIterations) {
+       try {
+         const batch = await infoClient.userNonFundingLedgerUpdates({
+           user: addressToCheck as `0x${string}`,
+           startTime,
+           endTime: currentEndTime,
+         });
+
+         console.log(`Batch ${iterations + 1}: retrieved ${batch.length} total entries`);
+
+         if (batch.length === 0) {
+           break; // No more data to fetch
+         }
+
+         allUpdates.push(...batch);
+
+         if (batch.length < 500) {
+           break;
+         }
+
+         startTime = batch[batch.length - 1].time - 1;
+         iterations++;
+
+         await new Promise(resolve => setTimeout(resolve, 100));
+
+       } catch (err) {
+         console.error(`Error retrieving batch ${iterations + 1}:`, err);
+         break;
+       }
+     }
+
+     // Sort by timestamp (oldest to newest)
+     const sortedUpdates = allUpdates.sort((a, b) => a.time - b.time);
+
+     console.log(`Total Non Funding Ledger Updatesretrieved: ${allUpdates.length} entries over ${iterations} batches`, allUpdates);
+     console.log(`Period covered: ${new Date(sortedUpdates[0]?.time || 0).toLocaleDateString()} - ${new Date(sortedUpdates[sortedUpdates.length - 1]?.time || 0).toLocaleDateString()}`);
+
+     return sortedUpdates;
+  }, [infoClient]);
+
   // Method to refresh user data
   const refreshUserData = useCallback(async () => {
     // In watch mode, use watch mode address, otherwise use configured or connected address
@@ -204,13 +255,14 @@ export const HyperliquidDataProvider: React.FC<
       setIsLoading(true);
       setError(null);
 
-      const [portfolioMetrics, spotState, clearingState, orders, funding] =
+      const [portfolioMetrics, spotState, clearingState, orders, funding, nonFundingUpdates] =
         await Promise.all([
           infoClient.portfolio({ user: addressToCheck as `0x${string}` }),
           infoClient.spotClearinghouseState({ user: addressToCheck as `0x${string}` }),
           infoClient.clearinghouseState({ user: addressToCheck as `0x${string}` }),
           infoClient.openOrders({ user: addressToCheck as `0x${string}` }),
           fetchAllUserFunding(addressToCheck),
+          fetchAllUserNonFundingLedgerUpdates(addressToCheck), 
         ]);
 
       setPortfolioMetrics(portfolioMetrics);
@@ -218,6 +270,7 @@ export const HyperliquidDataProvider: React.FC<
       setClearinghouseState(clearingState);
       setOpenOrders(orders);
       setUserFunding(funding);
+      setNonFundingUpdates(nonFundingUpdates);
     } catch (err) {
       console.error(
         "Error refreshing user data:",
@@ -227,7 +280,7 @@ export const HyperliquidDataProvider: React.FC<
     } finally {
       setIsLoading(false);
     }
-  }, [infoClient, address, isConnected, config?.subAccountAddress, isWatchMode, watchAddress, fetchAllUserFunding]);
+  }, [infoClient, address, isConnected, config?.subAccountAddress, isWatchMode, watchAddress, fetchAllUserFunding, fetchAllUserNonFundingLedgerUpdates]);
 
   // Method to refresh funding history
   const refreshFundingHistory = useCallback(
@@ -332,6 +385,7 @@ export const HyperliquidDataProvider: React.FC<
     // account datas
     portfolioMetrics,
     userFunding,
+    nonFundingUpdates,
     spotClearinghouseState,
     clearinghouseState,
     openOrders,

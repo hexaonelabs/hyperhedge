@@ -12,17 +12,19 @@ import { TrendingUp, TrendingDown, BarChart3 } from "lucide-react";
 
 interface PortfolioChartProps {
   data: Array<{ time: number; portfolioValue: number }>;
+  initialDepositValue: number;
   className?: string;
 }
 
 const PortfolioChart: React.FC<PortfolioChartProps> = ({
   data,
+  initialDepositValue,
   className = "",
 }) => {
   // stats calculation
   const currentValue =
     data.length > 0 ? data[data.length - 1].portfolioValue : 0;
-  const initialValue = data.length > 0 ? data[1]?.portfolioValue || 0 : 0;
+  const initialValue = initialDepositValue ?? 0;
   const absoluteChange = currentValue - initialValue;
   const percentageChange =
     initialValue !== 0

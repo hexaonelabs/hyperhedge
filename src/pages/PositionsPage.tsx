@@ -17,6 +17,7 @@ import { useWatchMode } from "../hooks/useWatchMode";
 import WatchModeInput from "../components/WatchModeInput";
 import AccountIndicator from "../components/AccountIndicator";
 import FundingDetailsAccordion from "../components/FundingDetailsAccordion";
+import { DepositUpdate, SpotTransferUpdate, SubAccountTransferUpdate, VaultDepositUpdate, VaultWithdrawUpdate, WithdrawUpdate } from "@nktkas/hyperliquid";
 
 const PositionsPage: React.FC = () => {
   const { address, openConnectModal } = useWallet();
@@ -28,7 +29,7 @@ const PositionsPage: React.FC = () => {
     isLoading: loading,
     totalAccountValueUSD,
     accountPnl,
-    raw: { portfolioMetrics, spotClearinghouseState, clearinghouseState, userFunding },
+    raw: { portfolioMetrics, spotClearinghouseState, clearinghouseState, userFunding, nonFundingUpdates },
     refreshUserData,
   } = useHyperliquidProcessedData();
   const { config } = useHyperliquidConfig();
@@ -134,9 +135,10 @@ const PositionsPage: React.FC = () => {
 
   // Calculate statistics from positions
   const stats = React.useMemo(() => {
-    if (!hedgePositions || hedgePositions.length === 0) {
+    if (!addressToCheck) {
       return {
         totalValue: 0,
+        initialDepositValue: 0,
         activePositions: 0,
         totalMargin: 0,
         averageLeverage: 0,
@@ -149,8 +151,47 @@ const PositionsPage: React.FC = () => {
       0
     );
     const averageLeverage =
-      hedgePositions.reduce((sum, pos) => sum + pos.leverage, 0) /
-      hedgePositions.length;
+      (hedgePositions.reduce((sum, pos) => sum + (pos.leverage ?? 1), 0) /
+      hedgePositions.length) || 1;
+
+    const depositValue =  (nonFundingUpdates || []).filter(
+      (update) => update.delta.type === "deposit"
+    ).reduce((sum, update) => sum + Number((update.delta as DepositUpdate).usdc), 0);
+
+    const spotDepositValue = (nonFundingUpdates || []).filter(
+      (update) => update.delta.type === "spotTransfer" && (update.delta.destination).toLowerCase() === addressToCheck?.toLowerCase()
+    ).reduce((sum, update) => sum + Number((update.delta as SpotTransferUpdate).usdcValue), 0);
+
+    const spotWithdrawValue = (nonFundingUpdates || []).filter(
+      (update) => update.delta.type === "spotTransfer" && (update.delta.destination).toLowerCase() !== addressToCheck?.toLowerCase()
+    ).reduce((sum, update) => sum + Number((update.delta as SpotTransferUpdate).usdcValue), 0);
+
+    const subAccountDepositValue = (nonFundingUpdates || []).filter(
+      (update) => update.delta.type === "subAccountTransfer" && (update.delta.destination).toLowerCase() === addressToCheck?.toLowerCase()
+    ).reduce((sum, update) => sum + Number((update.delta as SubAccountTransferUpdate).usdc), 0);
+
+    const subAccountWithdrawValue = (nonFundingUpdates || []).filter(
+      (update) => update.delta.type === "subAccountTransfer" && (update.delta.destination).toLowerCase() !== addressToCheck?.toLowerCase()
+    ).reduce((sum, update) => sum + Number((update.delta as SubAccountTransferUpdate).usdc), 0);
+
+    const withdrawValue = (nonFundingUpdates || []).filter(
+      (update) => update.delta.type === "withdraw"
+    ).reduce((sum, update) => sum + Number((update.delta as WithdrawUpdate).usdc), 0);
+
+    const vaultDepositValue = (nonFundingUpdates || []).filter(
+      (update) => update.delta.type === "vaultDeposit"
+    ).reduce((sum, update) => sum + Number((update.delta as VaultDepositUpdate).usdc), 0);
+
+    const vaultWithdrawValue = (nonFundingUpdates || []).filter(
+      (update) => update.delta.type === "vaultWithdraw"
+    ).reduce((sum, update) => sum + Number((update.delta as VaultWithdrawUpdate).netWithdrawnUsd), 0);
+    
+    const initialDepositValue = depositValue + spotDepositValue - spotWithdrawValue + subAccountDepositValue - subAccountWithdrawValue - withdrawValue + vaultWithdrawValue - vaultDepositValue;
+    // console.log("Non-funding ledger updates:", {
+    //   nonFundingUpdates, depositValue, spotDepositValue,
+    //   spotWithdrawValue, initialDepositValue, subAccountDepositValue, subAccountWithdrawValue, withdrawValue, 
+    //   vaultWithdrawValue, vaultDepositValue
+    // });
 
     return {
       totalValue,
@@ -158,8 +199,9 @@ const PositionsPage: React.FC = () => {
       totalMargin,
       averageLeverage,
       pnl: accountPnl,
+      initialDepositValue,
     };
-  }, [hedgePositions, totalAccountValueUSD, accountPnl]);
+  }, [hedgePositions, totalAccountValueUSD, accountPnl, nonFundingUpdates, addressToCheck]);
 
   // Affichage de la section de connexion seulement si pas en mode watch et pas d'adresse
   if (!addressToCheck && !isWatchMode) {
@@ -229,7 +271,7 @@ const PositionsPage: React.FC = () => {
   }
 
   // Loading state
-  if (loading && hedgePositions.length === 0) {
+  if (loading && !spotClearinghouseState ) {
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
@@ -327,7 +369,7 @@ const PositionsPage: React.FC = () => {
 
       {/* Portfolio Chart */}
       {portfolioData && portfolioData.length > 0 && (
-        <PortfolioChart data={portfolioData} className="mb-6" />
+        <PortfolioChart data={portfolioData} initialDepositValue={stats.initialDepositValue} className="mb-6" />
       )}
 
       {/* Funding Rates Chart */}

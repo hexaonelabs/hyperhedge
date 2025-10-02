@@ -76,7 +76,8 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
     }
 
     const cutoffTime = Date.now() - (selectedOption.days * 24 * 60 * 60 * 1000);
-    return data.filter(point => point.time >= cutoffTime);
+    const filteredData = data.filter(point => point.time >= cutoffTime);
+    return filteredData;
   }, [data, selectedTimeFilter]);
 
   // Filter userFunding data as well
@@ -217,6 +218,12 @@ const FundingsChart: React.FC<FundingsChartProps> = ({
       minAPY: validAPYValues.length > 0 ? Math.min(...validAPYValues) : 0,
     };
   }, [apyData]);
+
+  useEffect(() => {
+    if (selectedTimeFilter === '7d' && filteredData.length === 0) {
+      setSelectedTimeFilter('all');
+    }
+  }, [selectedTimeFilter, filteredData]);
 
   const { maxAPY, minAPY } = apyStatistics;
 

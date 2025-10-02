@@ -795,7 +795,11 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
             <button
               onClick={() => navigate("/markets")}
               disabled={isWatchMode}
-              className="flex items-center gap-2 px-6 py-3 bg-primary-500 hover:bg-primary-600 text-black font-semibold rounded-lg transition-colors duration-200 shadow-lg hover:shadow-xl"
+              className={`px-5 py-3 bg-dark-800 hover:bg-dark-700 rounded-lg border border-dark-700 hover:border-dark-600 transition-colors duration-200 flex items-center gap-2 ${
+                isWatchMode
+                  ? "cursor-not-allowed text-gray-400 border-gray-700 hover:border-gray-600"
+                  : "bg-primary-500 text-black hover:bg-primary-600 "
+              }`}
             >
               <Plus className="w-5 h-5" />
               Add Position
