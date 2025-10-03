@@ -121,8 +121,9 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
     const unhedgedSpot = spotPositions
       .filter(
         (spot) =>
-          !hedgedSymbols.includes(spot.coin) &&
-          !hedgedSymbols.map((s) => `U${s}`).includes(spot.coin)
+          !hedgedSymbols.includes(spot.coin)
+          && !hedgedSymbols.map((s) => `U${s}`).includes(spot.coin) // manage U tokens
+          && !hedgedSymbols.map((s) => `U${s}`).includes(spot.coin + 'COIN') // manage tokens with COIN spot suffix
       )
       .map((spot) => ({
         symbol: spot.coin,

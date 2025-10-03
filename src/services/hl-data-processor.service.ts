@@ -64,7 +64,8 @@ export const processFundingRates = (
     return spotTokensList.some(
       (spotToken) =>
         spotToken.name.split("-")[0] === rate.symbol ||
-        spotToken.name.split("-")[0] === `U${rate.symbol}`
+        spotToken.name.split("-")[0] === `U${rate.symbol}` ||
+        spotToken.name.split("-")[0] + 'COIN' === `U${rate.symbol}` // manage U tokens with COIN spot suffix
     );
   });
 
@@ -88,7 +89,9 @@ export const processHedgePositions = (
     .map((spotToken) => {
       const perpToken = perpTokens.find(
         ({ position: p }) =>
-          p.coin === spotToken.coin || `U${p.coin}` === spotToken.coin
+          p.coin === spotToken.coin 
+        || `U${p.coin}` === spotToken.coin // manage U tokens
+        || `U${p.coin}` === spotToken.coin + 'COIN' // manage U tokens with COIN spot suffix
       );
       if (!perpToken) {
         return null;
