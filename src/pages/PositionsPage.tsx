@@ -5,6 +5,7 @@ import {
   Activity,
   DollarSign,
   Eye,
+  Share2,
 } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
@@ -17,6 +18,7 @@ import { useWatchMode } from "../hooks/useWatchMode";
 import WatchModeInput from "../components/WatchModeInput";
 import AccountIndicator from "../components/AccountIndicator";
 import FundingDetailsAccordion from "../components/FundingDetailsAccordion";
+import SimpleShareModal from "../components/SimpleShareModal";
 import { DepositUpdate, SpotTransferUpdate, SubAccountTransferUpdate, VaultDepositUpdate, VaultWithdrawUpdate, WithdrawUpdate } from "@nktkas/hyperliquid";
 
 const PositionsPage: React.FC = () => {
@@ -39,6 +41,8 @@ const PositionsPage: React.FC = () => {
   const [showWatchModeInput, setShowWatchModeInput] = React.useState(false);
   // State pour gérer les changements non sauvegardés
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+  // State pour gérer le modal de partage social
+  const [showShareModal, setShowShareModal] = React.useState(false);
 
   // Fonction pour valider une adresse Ethereum
   const isValidEthereumAddress = (address: string): boolean => {
@@ -311,8 +315,20 @@ const PositionsPage: React.FC = () => {
           </p>
         </div>
         
-        {/* Account indicator aligned with title */}
-        <AccountIndicator />
+        <div className="flex items-center gap-4">
+          {/* Share Performance Button */}
+          {(!isWatchMode && (stats.totalValue > 0 || stats.activePositions > 0)) && (
+            <button
+              onClick={() => setShowShareModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-dark-800 hover:bg-dark-700 text-gray-400 border border-gray-700 hover:border-gray-600 rounded-lg font-medium transition-colors duration-200"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+          )}
+          
+          {/* Account indicator aligned with title */}
+          <AccountIndicator />
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -409,6 +425,14 @@ const PositionsPage: React.FC = () => {
         totalAccountValueUSD={totalAccountValueUSD}
         isWatchMode={isWatchMode}
         onUnsavedChanges={setHasUnsavedChanges}
+      />
+
+      {/* Social Share Modal */}
+      <SimpleShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        apy={stats.average7dApy}
+        userAddress={addressToCheck || undefined}
       />
     </div>
   );
