@@ -1,12 +1,36 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createWalletClient, http } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import * as hl from "@nktkas/hyperliquid";
 import { arbitrum } from "viem/chains";
 import {
   HedgeCalculation,
   PositionAdjustment,
 } from "../utils/hedgeCalculations";
+
+const approveWalletAgent = async (
+  walletClient: ReturnType<typeof createWalletClient>,
+  isTestnet?: boolean
+) => {
+  const privateKey = generatePrivateKey();
+  const agentAddress = privateKeyToAccount(privateKey).address;
+  // Implement the approval logic here
+  const hlClient = new hl.ExchangeClient({
+    wallet: walletClient,
+    transport: new hl.HttpTransport({
+      isTestnet: isTestnet || false,
+    }),
+    isTestnet: isTestnet || false,
+  });
+  const result = await hlClient.approveAgent({
+    agentAddress,
+    agentName: "hyperhedge" + (window.location.hostname.includes("localhost") ? "-test" : ""),
+  });
+  if (result.status !== 'ok') {
+    throw new Error(`Agent approval failed: ${result.response.type || 'Unknown error'}`);
+  }
+  return { privateKey, agentAddress };
+};
 
 const transferUSDC = async (
   hlClient: hl.ExchangeClient,
@@ -795,4 +819,4 @@ const updatePositionLeverage = async (
   };
 };
 
-export { openHedgePosition, updateHedgePosition };
+export { openHedgePosition, updateHedgePosition, approveWalletAgent };

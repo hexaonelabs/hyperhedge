@@ -10,11 +10,13 @@ import {
   Edit3,
   Eye,
   EyeOff,
+  Wand2,
 } from "lucide-react";
 import { useWallet } from "../hooks/useWallet";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
 import { HyperliquidConfig } from "../types";
 import { SecureKeyManager } from "../utils/SecureKeyManager";
+import { approveWalletAgent } from "../services/hl-exchange.service";
 
 interface HyperliquidConfigModalProps {
   isOpen: boolean;
@@ -25,7 +27,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
   isOpen,
   onClose,
 }) => {
-  const { isConnected, address, signStringMessage } = useWallet();
+  const { isConnected, address, signStringMessage, walletClient } = useWallet();
   const {
     config,
     isLoading,
@@ -44,7 +46,6 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
   const [formConfig, setFormConfig] = useState<HyperliquidConfig>(config);
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { apiWalletPrivateKey, ...rest } = config;
     if (!apiWalletPrivateKey) {
       setFormConfig({ ...rest, apiWalletPrivateKey: "" });
@@ -317,76 +318,163 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                   </div>
                 </div>
 
-                {/* API Key Section */}
+                {/* API Wallet Section */}
                 <div className="space-y-4">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <Key className="w-5 h-5 text-primary-400" />
-                    <h4 className="text-lg font-medium text-white">
-                      API Private Key
-                    </h4>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <Key className="w-5 h-5 text-primary-400" />
+                      <h4 className="text-lg font-medium text-white">
+                        API Wallet
+                      </h4>
+                    </div>
                   </div>
 
+                  {/* Configuration Status Card */}
                   {config.apiWalletPrivateKey &&
                     (formConfig.apiWalletPrivateKey?.length ?? -1) === -1 && (
-                      // disabled input with clear btn
-                      <div className="relative">
-                        <input
-                          type="password"
-                          value="••••••••••••••••••••••••••••••••"
-                          disabled
-                          className="w-full px-4 py-3 bg-dark-800/50 border border-dark-700 rounded-xl text-dark-400 cursor-not-allowed pr-28"
-                          placeholder="Private key already configured"
-                        />
-                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-3">
-                          <div className="flex items-center space-x-1">
-                            <Check size={12} className="text-primary-400" />
-                            <span className="text-xs text-primary-400 font-medium">
-                              Configured
-                            </span>
+                      <div className="p-4 bg-primary-500/5 border border-primary-500/20 rounded-xl">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-primary-500/20 rounded-full flex items-center justify-center">
+                              <Check size={16} className="text-primary-400" />
+                            </div>
+                            <div>
+                              <p className="text-white font-medium text-sm">
+                                API Wallet Configured
+                              </p>
+                              <p className="text-dark-300 text-xs">
+                                Your private key is securely stored
+                              </p>
+                            </div>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setFormConfig({
-                                ...formConfig!,
-                                apiWalletPrivateKey: "",
-                              })
-                            }
-                            className="text-dark-400 hover:text-white transition-colors p-1 hover:bg-dark-700 rounded"
-                            title="Clear private key"
-                          >
-                            <X size={14} />
-                          </button>
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() =>
+                                setFormConfig({
+                                  ...formConfig!,
+                                  apiWalletPrivateKey: "",
+                                })
+                              }
+                              className="px-3 py-1.5 text-xs text-dark-300 hover:text-white border border-dark-600 hover:border-dark-500 rounded-lg transition-colors"
+                              title="Edit configuration"
+                            >
+                              Edit
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
+
+                  {/* Configuration Input */}
                   {(formConfig.apiWalletPrivateKey?.length ?? -1) >= 0 && (
-                    <div className="relative">
-                      <input
-                        type={showPrivateKey ? "text" : "password"}
-                        value={formConfig?.apiWalletPrivateKey}
-                        onChange={(e) =>
-                          setFormConfig({
-                            ...formConfig!,
-                            apiWalletPrivateKey: e.target.value,
-                          })
-                        }
-                        placeholder="Your private key..."
-                        className="w-full px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all pr-12"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPrivateKey(!showPrivateKey)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
-                      >
-                        {showPrivateKey ? (
-                          <EyeOff size={18} />
-                        ) : (
-                          <Eye size={18} />
-                        )}
-                      </button>
+                    <div className="space-y-4">
+                      {/* Options Cards */}
+                      <div className="grid grid-cols-1 gap-4">
+                        {/* Automatic Generation Card */}
+                        <div className="p-4 bg-dark-800/50 border border-dark-700 rounded-xl hover:border-primary-500/30 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 bg-primary-500/20 rounded-lg flex items-center justify-center">
+                                <Wand2 size={18} className="text-primary-400" />
+                              </div>
+                              <div>
+                                <h5 className="text-white font-medium text-sm">
+                                  Authorize Wallet Agent
+                                </h5>
+                                <p className="text-dark-300 text-xs">
+                                  Create and authorize a new API wallet
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={async () => {
+                                if (!walletClient) return;
+                                const { privateKey } = await approveWalletAgent(walletClient, formConfig.isTestnet)
+                                setFormConfig({
+                                  ...formConfig!,
+                                  apiWalletPrivateKey: privateKey,
+                                });
+                              }}
+                              disabled={!walletClient}
+                              className="px-4 py-2 bg-primary-500 hover:bg-primary-600 disabled:bg-dark-700 disabled:text-dark-400 text-black rounded-lg transition-colors text-sm font-medium"
+                            >
+                              {!walletClient ? 'Connect your wallet' : 'Authorize'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Manual Input Card */}
+                        <div className="p-4 bg-dark-800/50 border border-dark-700 rounded-xl">
+                          <div className="space-y-3">
+                            <div className="flex items-center space-x-3 mb-3">
+                              <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                                <Key size={18} className="text-orange-400" />
+                              </div>
+                              <div>
+                                <h5 className="text-white font-medium text-sm">
+                                  Existing Private Key
+                                </h5>
+                                <p className="text-dark-300 text-xs">
+                                  Use a private key you already own and have authorized
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="relative">
+                              <input
+                                type={showPrivateKey ? "text" : "password"}
+                                value={formConfig?.apiWalletPrivateKey || ""}
+                                onChange={(e) =>
+                                  setFormConfig({
+                                    ...formConfig!,
+                                    apiWalletPrivateKey: e.target.value,
+                                  })
+                                }
+                                placeholder="Enter your private key..."
+                                className="w-full px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all pr-12"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowPrivateKey(!showPrivateKey)}
+                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
+                              >
+                                {showPrivateKey ? (
+                                  <EyeOff size={18} />
+                                ) : (
+                                  <Eye size={18} />
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Validation Status */}
+                            {formConfig?.apiWalletPrivateKey && (
+                              <div className="flex items-center space-x-2 text-xs">
+                                {formConfig.apiWalletPrivateKey.length === 64 ||
+                                (formConfig.apiWalletPrivateKey.startsWith("0x") &&
+                                  formConfig.apiWalletPrivateKey.length === 66) ? (
+                                  <>
+                                    <Check size={14} className="text-primary-400" />
+                                    <span className="text-primary-400">
+                                      Valid private key
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <AlertTriangle size={14} className="text-red-400" />
+                                    <span className="text-red-400">
+                                      Invalid private key (64 hex characters required)
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
+
+                  {/* Security Notice */}
                   <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                     <div className="flex items-start space-x-2">
                       <AlertTriangle
@@ -397,7 +485,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                         <p className="font-medium mb-1">Security Notice</p>
                         <p>
                           Your private key is stored locally in your browser
-                          only.
+                          only and encrypted with your wallet signature.
                         </p>
                       </div>
                     </div>
@@ -568,106 +656,158 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                     <div className="flex items-center space-x-3 mb-4">
                       <Key className="w-6 h-6 text-primary-400" />
                       <h4 className="text-lg font-medium text-white">
-                        API Private Key
+                        API Wallet
                       </h4>
                     </div>
                     <p className="text-dark-300 text-sm mb-6">
-                      Enter your API Wallet private key for Hyperliquid. This
-                      information is stored locally and securely.
+                      Configure your API Wallet for Hyperliquid. You can automatically
+                      generate a wallet or use an existing private key.
                     </p>
 
-                    <div className="space-y-2">
-                      <label className="block text-sm font-medium text-dark-200">
-                        API Wallet Private Key
-                      </label>
-                      {config.apiWalletPrivateKey &&
-                        (formConfig.apiWalletPrivateKey?.length ?? -1) ===
-                          -1 && (
-                          // disabled input with clear btn
-                          <div className="relative">
-                            <input
-                              type="password"
-                              value="••••••••••••••••••••••••••••••••"
-                              disabled
-                              className="w-full px-4 py-3 bg-dark-800/50 border border-dark-700 rounded-xl text-dark-400 cursor-not-allowed pr-28"
-                              placeholder="Private key already configured"
-                            />
-                            <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-3">
-                              <div className="flex items-center space-x-1">
-                                <Check size={12} className="text-primary-400" />
-                                <span className="text-xs text-primary-400 font-medium">
-                                  Configured
-                                </span>
+                    {/* Configuration Status Card */}
+                    {config.apiWalletPrivateKey &&
+                      (formConfig.apiWalletPrivateKey?.length ?? -1) === -1 && (
+                        <div className="p-4 bg-primary-500/5 border border-primary-500/20 rounded-xl mb-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-primary-500/20 rounded-full flex items-center justify-center">
+                                <Check size={16} className="text-primary-400" />
+                              </div>
+                              <div>
+                                <p className="text-white font-medium text-sm">
+                                  API Wallet Configured
+                                </p>
+                                <p className="text-dark-300 text-xs">
+                                  Your private key is securely stored
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() =>
+                                setFormConfig({
+                                  ...formConfig!,
+                                  apiWalletPrivateKey: "",
+                                })
+                              }
+                              className="px-3 py-1.5 text-xs text-dark-300 hover:text-white border border-dark-600 hover:border-dark-500 rounded-lg transition-colors"
+                              title="Edit configuration"
+                            >
+                              Edit
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Configuration Input */}
+                    {(formConfig.apiWalletPrivateKey?.length ?? -1) >= 0 && (
+                      <div className="space-y-4">
+                        {/* Options Cards */}
+                        <div className="grid grid-cols-1 gap-4">
+                          {/* Automatic Generation Card */}
+                          <div className="p-4 bg-dark-800/50 border border-dark-700 rounded-xl hover:border-primary-500/30 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-primary-500/20 rounded-lg flex items-center justify-center">
+                                  <Wand2 size={18} className="text-primary-400" />
+                                </div>
+                                <div>
+                                  <h5 className="text-white font-medium text-sm">
+                                    Authorize Wallet Agent
+                                  </h5>
+                                  <p className="text-dark-300 text-xs">
+                                    Create and authorize a new API wallet
+                                  </p>
+                                </div>
                               </div>
                               <button
-                                type="button"
-                                onClick={() =>
+                                onClick={async () => {
+                                  if (!walletClient) return;
+                                  const { privateKey } = await approveWalletAgent(walletClient, formConfig.isTestnet)
                                   setFormConfig({
                                     ...formConfig!,
-                                    apiWalletPrivateKey: "",
-                                  })
-                                }
-                                className="text-dark-400 hover:text-white transition-colors p-1 hover:bg-dark-700 rounded"
-                                title="Clear private key"
+                                    apiWalletPrivateKey: privateKey,
+                                  });
+                                }}
+                                disabled={!walletClient}
+                                className="px-4 py-2 bg-primary-500 hover:bg-primary-600 disabled:bg-dark-700 disabled:text-dark-400 text-black rounded-lg transition-colors text-sm font-medium"
                               >
-                                <X size={14} />
+                                {!walletClient ? 'Connect your wallet' : 'Authorize'}
                               </button>
                             </div>
                           </div>
-                        )}
-                      {(formConfig.apiWalletPrivateKey?.length ?? -1) >= 0 && (
-                        <div className="relative">
-                          <input
-                            type={showPrivateKey ? "text" : "password"}
-                            value={formConfig?.apiWalletPrivateKey}
-                            onChange={(e) =>
-                              setFormConfig({
-                                ...formConfig!,
-                                apiWalletPrivateKey: e.target.value,
-                              })
-                            }
-                            placeholder="Your private key..."
-                            className="w-full px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all pr-12"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPrivateKey(!showPrivateKey)}
-                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
-                          >
-                            {showPrivateKey ? (
-                              <EyeOff size={18} />
-                            ) : (
-                              <Eye size={18} />
-                            )}
-                          </button>
-                        </div>
-                      )}
-                      {formConfig?.apiWalletPrivateKey && (
-                        <div className="flex items-center space-x-2 text-xs">
-                          {formConfig.apiWalletPrivateKey.length === 64 ||
-                          (formConfig.apiWalletPrivateKey.startsWith("0x") &&
-                            formConfig.apiWalletPrivateKey.length === 66) ? (
-                            <>
-                              <Check size={14} className="text-primary-400" />
-                              <span className="text-primary-400">
-                                Valid private key
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              <AlertTriangle
-                                size={14}
-                                className="text-red-400"
-                              />
-                              <span className="text-red-400">
-                                Invalid private key (64 hex characters required)
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
 
+                          {/* Manual Input Card */}
+                          <div className="p-4 bg-dark-800/50 border border-dark-700 rounded-xl">
+                            <div className="space-y-3">
+                              <div className="flex items-center space-x-3 mb-3">
+                                <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                                  <Key size={18} className="text-orange-400" />
+                                </div>
+                                <div>
+                                  <h5 className="text-white font-medium text-sm">
+                                    Existing Private Key
+                                  </h5>
+                                  <p className="text-dark-300 text-xs">
+                                    Use a private key you already own and have authorized
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="relative">
+                                <input
+                                  type={showPrivateKey ? "text" : "password"}
+                                  value={formConfig?.apiWalletPrivateKey || ""}
+                                  onChange={(e) =>
+                                    setFormConfig({
+                                      ...formConfig!,
+                                      apiWalletPrivateKey: e.target.value,
+                                    })
+                                  }
+                                  placeholder="Enter your private key..."
+                                  className="w-full px-4 py-3 bg-dark-800 border border-dark-700 rounded-xl text-white placeholder-dark-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all pr-12"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPrivateKey(!showPrivateKey)}
+                                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-dark-400 hover:text-white transition-colors"
+                                >
+                                  {showPrivateKey ? (
+                                    <EyeOff size={18} />
+                                  ) : (
+                                    <Eye size={18} />
+                                  )}
+                                </button>
+                              </div>
+
+                              {/* Validation Status */}
+                              {formConfig?.apiWalletPrivateKey && (
+                                <div className="flex items-center space-x-2 text-xs">
+                                  {formConfig.apiWalletPrivateKey.length === 64 ||
+                                  (formConfig.apiWalletPrivateKey.startsWith("0x") &&
+                                    formConfig.apiWalletPrivateKey.length === 66) ? (
+                                    <>
+                                      <Check size={14} className="text-primary-400" />
+                                      <span className="text-primary-400">
+                                        Valid private key
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <AlertTriangle size={14} className="text-red-400" />
+                                      <span className="text-red-400">
+                                        Invalid private key (64 hex characters required)
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Security Notice */}
                     <div className="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
                       <div className="flex items-start space-x-3">
                         <AlertTriangle
@@ -680,7 +820,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                           </p>
                           <p>
                             Never share your private key. It is stored locally
-                            in your browser only.
+                            in your browser only and encrypted with your signature.
                           </p>
                         </div>
                       </div>

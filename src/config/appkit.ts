@@ -21,9 +21,9 @@ export const modal = createAppKit({
   networks: [mainnet, arbitrum, sepolia],
   projectId,
   metadata,
-  // features: {
-  //   analytics: true // Optionnel
-  // }
+  features: {
+    analytics: true // Optionnel
+  }
 });
 
 export { wagmiAdapter };
