@@ -58,8 +58,8 @@ const NotificationToast: React.FC<NotificationToastProps> = ({
           icon: <CheckCircle size={20} />,
           bgClass: "from-success-600/20 to-green-600/20 border-success-500/30",
           iconClass: "text-success-400",
-          title: "Hedge Position Created!",
-          description:  message || "Your hedge strategy has been successfully executed",
+          title: orders ? "Hedge Position Created" : "Success",
+          description: message || "Your hedge strategy has been successfully executed",
         };
       case "error":
         return {

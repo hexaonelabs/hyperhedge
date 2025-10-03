@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useWallet } from "../hooks/useWallet";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
+import { useNotification } from "../hooks/useNotification";
 import { HyperliquidConfig } from "../types";
 import { SecureKeyManager } from "../utils/SecureKeyManager";
 import { approveWalletAgent } from "../services/hl-exchange.service";
@@ -37,6 +38,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
     saveConfig,
     clearConfig,
   } = useHyperliquidConfig();
+  const { showSuccess } = useNotification();
   const [step, setStep] = useState(1);
   const [isValid, setIsValid] = useState(false);
   const [showPrivateKey, setShowPrivateKey] = useState(false);
@@ -88,6 +90,12 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
         ...formConfig,
       });
     }
+    
+    // Show success notification and close modal
+    showSuccess(undefined, "Configuration saved successfully!");
+    setTimeout(() => {
+      onClose();
+    }, 1500);
   };
 
   const handleNext = () => {
@@ -133,7 +141,7 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-xl flex items-center justify-center">
-                <Settings size={20} className="text-white" />
+                <Settings size={20} className="text-black" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold text-white">
@@ -566,8 +574,8 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                         }`}
                       >
                         <div className="text-center">
-                          <div className="w-8 h-8 mx-auto mb-2 bg-green-500 rounded-full flex items-center justify-center">
-                            <Globe size={16} className="text-white" />
+                          <div className="w-8 h-8 mx-auto mb-2 bg-primary-500 rounded-full flex items-center justify-center">
+                            <Globe size={16} className="text-black" />
                           </div>
                           <h5 className="font-medium">Mainnet</h5>
                           <p className="text-xs opacity-75">Production</p>
@@ -585,8 +593,8 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                         }`}
                       >
                         <div className="text-center">
-                          <div className="w-8 h-8 mx-auto mb-2 bg-orange-500 rounded-full flex items-center justify-center">
-                            <Globe size={16} className="text-white" />
+                          <div className="w-8 h-8 mx-auto mb-2 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <Globe size={16} className="text-black" />
                           </div>
                           <h5 className="font-medium">Testnet</h5>
                           <p className="text-xs opacity-75">Development</p>
@@ -881,19 +889,11 @@ const HyperliquidConfigModal: React.FC<HyperliquidConfigModalProps> = ({
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-dark-300">API Key:</span>
-                        {formConfig?.apiWalletPrivateKey ? (
-                          formConfig.apiWalletPrivateKey.length === 64 ||
-                          (formConfig.apiWalletPrivateKey.startsWith("0x") &&
-                            formConfig.apiWalletPrivateKey.length === 66) ? (
+                        {formConfig?.apiWalletPrivateKey || config.apiWalletPrivateKey ? (
                             <span className="text-primary-400 text-sm">
                               ✓ Configured
                             </span>
                           ) : (
-                            <span className="text-red-400 text-sm">
-                              ✗ Invalid API Key
-                            </span>
-                          )
-                        ) : (
                           <span className="text-dark-400 text-sm">
                             Not configured
                           </span>
