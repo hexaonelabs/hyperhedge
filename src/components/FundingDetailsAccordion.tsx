@@ -23,20 +23,14 @@ const FundingDetailsAccordion: React.FC<FundingDetailsAccordionProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Filter only funding-related updates and sort by time (most recent first)
-  const fundingData = useMemo(() => {
-    return userFunding
-      .filter((item) => item.delta.type === "funding")
-      .sort((a, b) => b.time - a.time);
-  }, [userFunding]);
 
   // Paginate the funding data
   const paginatedData: PaginatedFunding = useMemo(() => {
-    const totalItems = fundingData.length;
+    const totalItems = userFunding.length;
     const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
-    const items = fundingData.slice(startIndex, endIndex);
+    const items = userFunding.slice(startIndex, endIndex);
 
     return {
       items,
@@ -44,12 +38,12 @@ const FundingDetailsAccordion: React.FC<FundingDetailsAccordionProps> = ({
       currentPage,
       totalItems,
     };
-  }, [fundingData, currentPage]);
+  }, [userFunding, currentPage]);
 
   // Calculate total funding amount
   const totalFunding = useMemo(() => {
-    return fundingData.reduce((acc, item) => acc + Number(item.delta.usdc || 0), 0);
-  }, [fundingData]);
+    return userFunding.reduce((acc, item) => acc + Number(item.delta.usdc || 0), 0);
+  }, [userFunding]);
 
   // Handle page navigation
   const handlePageChange = (page: number) => {
@@ -86,7 +80,7 @@ const FundingDetailsAccordion: React.FC<FundingDetailsAccordionProps> = ({
     setIsExpanded(!isExpanded);
   };
 
-  if (fundingData.length === 0) {
+  if (userFunding.length === 0) {
     return null;
   }
 
@@ -106,7 +100,7 @@ const FundingDetailsAccordion: React.FC<FundingDetailsAccordionProps> = ({
               Fundings Rates earned
             </h3>
             <p className="text-sm text-dark-400">
-              {fundingData.length} transactions • Total: {formatCurrency(totalFunding).formatted}
+              {userFunding.length} transactions • Total: {formatCurrency(totalFunding).formatted}
             </p>
           </div>
         </div>

@@ -142,6 +142,7 @@ const PositionsPage: React.FC = () => {
         activePositions: 0,
         totalMargin: 0,
         averageLeverage: 0,
+        average7dApy: 0,
         pnl: 0,
       };
     }
@@ -192,6 +193,11 @@ const PositionsPage: React.FC = () => {
     //   spotWithdrawValue, initialDepositValue, subAccountDepositValue, subAccountWithdrawValue, withdrawValue, 
     //   vaultWithdrawValue, vaultDepositValue
     // });
+    const totalFunding = accountFundingHistory?.data[(accountFundingHistory?.data.length - 1) || 0]?.funding || 0;
+    const actualTotalDays = (Date.now() - (accountFundingHistory?.data[0]?.time || 0)) / (1000 * 60 * 60 * 24);
+    const totalGainByDayUSD = totalFunding / (actualTotalDays || 1);
+    const average7dApy = (Math.pow(1 + totalGainByDayUSD / initialDepositValue, 365) - 1) * 100;
+
 
     return {
       totalValue,
@@ -200,8 +206,9 @@ const PositionsPage: React.FC = () => {
       averageLeverage,
       pnl: accountPnl,
       initialDepositValue,
+      average7dApy: initialDepositValue > 0 ? average7dApy : 0,
     };
-  }, [hedgePositions, totalAccountValueUSD, accountPnl, nonFundingUpdates, addressToCheck]);
+  }, [hedgePositions, totalAccountValueUSD, accountPnl, nonFundingUpdates, addressToCheck, accountFundingHistory]);
 
   // Affichage de la section de connexion seulement si pas en mode watch et pas d'adresse
   if (!addressToCheck && !isWatchMode) {
@@ -330,7 +337,7 @@ const PositionsPage: React.FC = () => {
             </div>
             <span className="text-dark-400 text-sm">Active</span>
           </div>
-          <h3 className="text-white font-semibold">Open Positions</h3>
+          <h3 className="text-white font-semibold">Neutral Positions</h3>
           <p className="text-2xl font-bold text-white">
             {stats.activePositions}
           </p>
@@ -341,11 +348,13 @@ const PositionsPage: React.FC = () => {
             <div className="p-2 bg-green-500/10 rounded-lg">
               <Activity className="w-6 h-6 text-orange-400" />
             </div>
-            <span className="text-primary-400 text-sm">Avg</span>
+            <span className="text-dark-400 text-sm">APY</span>
           </div>
-          <h3 className="text-white font-semibold">Avg Leverage</h3>
-          <p className="text-2xl font-bold text-white">
-            {stats.averageLeverage.toFixed(2)}x
+          <h3 className="text-white font-semibold">All time APY</h3>
+          <p className={`text-2xl font-bold ${
+              stats.average7dApy < 0 ? "text-red-400" : "text-primary-400"
+            }`}>
+            {stats.average7dApy.toFixed(2)}%
           </p>
         </div>
 
@@ -384,7 +393,9 @@ const PositionsPage: React.FC = () => {
       {/* Funding Details Accordion */}
       {userFunding && userFunding.length > 0 && (
         <FundingDetailsAccordion 
-          userFunding={userFunding} 
+          userFunding={userFunding
+            .filter((item) => item.delta.type === "funding")
+            .sort((a, b) => b.time - a.time)} 
           className="mb-6" 
         />
       )}
