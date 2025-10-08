@@ -1,12 +1,28 @@
 import * as hl from "@nktkas/hyperliquid";
 import { FundingRate, HedgePositionSummary } from "../types";
 
+/**
+ * Method to get funding markets available with their current funding rates
+ * Only returns funding rates for perpetual contracts that have Spot asset counterparts
+ * (e.g. BTC perpetual with BTC spot)
+ */
 export const processFundingRates = (
   spotMetaAndAssetCtxs: hl.SpotMetaAndAssetCtxs,
   metaAndAssetCtxs: hl.PerpsMetaAndAssetCtxs,
   allMids: Record<string, string>
 ): FundingRate[] => {
+  const authorizedTokens = ["BTC", "ETH", "FART", "HYPE", "PURR", "SOL", "XPL"];
   const spotTokensList = spotMetaAndAssetCtxs[0].tokens
+    // only if token name contains authorized tokens
+    .filter((token) =>
+      authorizedTokens.some(
+        (auth) =>
+          token.name === auth ||
+          token.name === `U${auth}` ||
+          token.name === `U${auth}COIN` // manage U tokens with COIN spot suffix
+      )
+    )
+    // map to include mid price from allMids
     .map((token) => {
       const universeItem = spotMetaAndAssetCtxs[0].universe.find(
         (item) => item.tokens[0] === token.index
@@ -28,7 +44,7 @@ export const processFundingRates = (
     .filter(Boolean)!
     .sort((a, b) => a!.name!.localeCompare(b!.name)) as {
     name: string;
-    index: number;
+    index: number | string;
     mid: string;
     szDecimals: number;
     tokens: number[];
@@ -44,6 +60,8 @@ export const processFundingRates = (
       if (!context || asset.isDelisted) return null;
       if (parseFloat(context.dayNtlVlm) < 100) return null;
       const currentRate = parseFloat(context.funding);
+      // filter out tokens with an invalid funding rate
+      if (isNaN(currentRate) || !isFinite(currentRate)) return null;
       return {
         id: asset.name,
         symbol: asset.name,
@@ -58,18 +76,17 @@ export const processFundingRates = (
       };
     })
     .filter((item): item is FundingRate => item !== null);
-
-  // only return funding rates for perpetual contracts that have Spot asset counterparts
-  const fundingRates = tokensAvailable.filter((rate) => {
-    return spotTokensList.some(
-      (spotToken) =>
-        spotToken.name.split("-")[0] === rate.symbol ||
-        spotToken.name.split("-")[0] === `U${rate.symbol}` ||
-        spotToken.name.split("-")[0] + 'COIN' === `U${rate.symbol}` // manage U tokens with COIN spot suffix
-    );
-  });
-
-  console.log({ tokensAvailable, fundingRates, spotTokensList, allMids });
+  const fundingRates = tokensAvailable
+    // only return funding rates for perpetual contracts that have Spot asset counterparts
+    .filter((rate) => {
+      return spotTokensList.some(
+        (spotToken) =>
+          spotToken.name.split("-")[0] === rate.symbol ||
+          spotToken.name.split("-")[0] === `U${rate.symbol}` ||
+          spotToken.name.split("-")[0] + "COIN" === `U${rate.symbol}` // manage U tokens with COIN spot suffix
+      );
+    });
+  // console.log({ tokensAvailable, fundingRates, spotTokensList, allMids });
   return fundingRates;
 };
 
@@ -89,9 +106,9 @@ export const processHedgePositions = (
     .map((spotToken) => {
       const perpToken = perpTokens.find(
         ({ position: p }) =>
-          p.coin === spotToken.coin 
-        || `U${p.coin}` === spotToken.coin // manage U tokens
-        || `U${p.coin}` === spotToken.coin + 'COIN' // manage U tokens with COIN spot suffix
+          p.coin === spotToken.coin ||
+          `U${p.coin}` === spotToken.coin || // manage U tokens
+          `U${p.coin}` === spotToken.coin + "COIN" // manage U tokens with COIN spot suffix
       );
       if (!perpToken) {
         return null;
