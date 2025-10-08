@@ -11,7 +11,7 @@ import {
   getCurrentPrice,
   calculateSpotPositionAdjustment,
 } from "../utils/hedgeCalculations";
-import { updateHedgePosition } from "../services/hl-exchange.service";
+import { checkAndTransferUSDC, updateHedgePosition } from "../services/hl-exchange.service";
 import { useWallet } from "../hooks/useWallet";
 import { useNotification } from "../hooks/useNotification";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
@@ -68,7 +68,7 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
   const [pendingAdjustments, setPendingAdjustments] = useState<PositionAdjustment[]>([]);
 
   // Hooks nécessaires pour les transactions
-  const { isConnected, signStringMessage } = useWallet();
+  const { isConnected, signStringMessage, walletClient } = useWallet();
   const { showLoading, showSuccess, showError } = useNotification();
   const { config } = useHyperliquidConfig();
   const {
@@ -287,6 +287,9 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
 
   const executeAdjustments = async (adjustments: PositionAdjustment[]) => {
     try {
+      if (!walletClient) {
+        throw new Error("Wallet client is not initialized");
+      }
       setIsSubmitting(true);
       showLoading();
       if (!config?.apiWalletPrivateKey || !isConnected) {
@@ -312,6 +315,95 @@ export const PositionsWidget: React.FC<PositionsWidgetProps> = ({
         !spotMetaAndAssetCtxs
       ) {
         throw new Error("No market data available");
+      }
+      // execut USDC transfer if needed
+
+      // Get current USDC balances
+      const perpsUSDC = Number(contextClearinghouseState.withdrawable);
+      const spotUSDC = Number(
+        contextSpotClearinghouseState.balances.find((b) => b.coin === "USDC")?.total || 0
+      );
+
+      // Calculate total USDC requirements for all adjustments
+      let totalRequiredSpotUSDC = 0;
+      let totalRequiredPerpsUSDC = 0;
+
+      // Pre-calculate USDC requirements for all adjustments
+      for (const adjustment of adjustments) {
+        // For spot adjustments (buying requires USDC)
+        if (adjustment.spotAdjustment > 0) {
+          // Need to estimate USDC required for spot purchases
+          // This is an approximation - in practice you'd need the current price
+          const spotAssets = spotMetaAndAssetCtxs[0];
+          const spotToken = spotAssets.tokens.find((token) =>
+            token.name.includes(adjustment.symbol)
+          );
+
+          if (spotToken) {
+            const universeItem = spotAssets.universe.find(
+              (item) => item.tokens[0] === spotToken.index
+            );
+            if (universeItem) {
+              const mid =
+                allMids[
+                  spotToken.name === "PURR" ? `PURR/USDC` : `@${universeItem.index * 10_000}`
+                ];
+              if (mid) {
+                totalRequiredSpotUSDC += adjustment.spotAdjustment * Number(mid);
+              }
+            }
+          }
+        }
+
+        // For perp adjustments (increasing short position requires margin)
+        if (adjustment.perpAdjustment < 0) {
+          // This is an approximation - you'd need to calculate actual margin requirements
+          const perpAssets = metaAndAssetCtxs;
+          const perpAssetIndex = perpAssets[0].universe.findIndex((a) =>
+            a.name.includes(adjustment.symbol)
+          );
+
+          if (perpAssetIndex !== -1) {
+            const markPx = Number(perpAssets[1][perpAssetIndex].markPx);
+            console.log({ markPx, ajustment: adjustment.perpAdjustment });
+            const additionalMargin =
+              (Math.abs(adjustment.perpAdjustment) * markPx) / adjustment.targetPerpLeverage;
+            totalRequiredPerpsUSDC += additionalMargin;
+          }
+        }
+      }
+      console.log("Total USDC requirements for adjustments:", {
+        totalRequiredSpotUSDC,
+        totalRequiredPerpsUSDC,
+      });
+      // Check and transfer USDC if needed for adjustments
+      if (totalRequiredSpotUSDC > 0 || totalRequiredPerpsUSDC > 0) {
+        const exchangeClient = new hl.ExchangeClient({
+          wallet: walletClient,
+          transport: new hl.HttpTransport({
+            isTestnet: config.isTestnet || false,
+          }),
+          isTestnet: config.isTestnet || false,
+          defaultVaultAddress: config?.subAccountAddress || undefined,
+        });
+        try {
+          const transferResult = await checkAndTransferUSDC(
+            exchangeClient,
+            { perpsUSDC, spotUSDC },
+            {
+              requiredPerpsUSDC: totalRequiredPerpsUSDC,
+              requiredSpotUSDC: totalRequiredSpotUSDC,
+            }
+          );
+          console.log("USDC balance check for adjustments completed:", {
+            transfersExecuted: transferResult.transfersExecuted,
+            transfers: transferResult.transfers,
+            finalBalances: transferResult.finalBalances,
+          });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (error: any) {
+          throw new Error(error.message || "Error transferring USDC");
+        }
       }
 
       // Exécuter les ajustements

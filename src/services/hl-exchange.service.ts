@@ -446,84 +446,9 @@ const updateHedgePosition = async (
     spotMetaAndAssetCtxs,
     metaAndAssetCtxs,
     allMids,
-    spotClearinghouseState,
+    // spotClearinghouseState,
     clearinghouseState,
   } = contextData;
-
-  // Get current USDC balances
-  const perpsUSDC = Number(clearinghouseState.withdrawable);
-  const spotUSDC = Number(
-    spotClearinghouseState.balances.find((b) => b.coin === "USDC")?.total || 0
-  );
-
-  // Calculate total USDC requirements for all adjustments
-  let totalRequiredSpotUSDC = 0;
-  let totalRequiredPerpsUSDC = 0;
-
-  // Pre-calculate USDC requirements for all adjustments
-  for (const adjustment of ops.adjustments) {
-    // For spot adjustments (buying requires USDC)
-    if (adjustment.spotAdjustment > 0) {
-      // Need to estimate USDC required for spot purchases
-      // This is an approximation - in practice you'd need the current price
-      const spotAssets = spotMetaAndAssetCtxs[0];
-      const spotToken = spotAssets.tokens.find((token) =>
-        token.name.includes(adjustment.symbol)
-      );
-
-      if (spotToken) {
-        const universeItem = spotAssets.universe.find(
-          (item) => item.tokens[0] === spotToken.index
-        );
-        if (universeItem) {
-          const mid =
-            allMids[
-              spotToken.name === "PURR" ? `PURR/USDC` : `@${universeItem.index}`
-            ];
-          if (mid) {
-            totalRequiredSpotUSDC += adjustment.spotAdjustment * Number(mid);
-          }
-        }
-      }
-    }
-
-    // For perp adjustments (increasing short position requires margin)
-    if (adjustment.perpAdjustment < 0) {
-      // This is an approximation - you'd need to calculate actual margin requirements
-      const perpAssets = metaAndAssetCtxs;
-      const perpAssetIndex = perpAssets[0].universe.findIndex((a) =>
-        a.name.includes(adjustment.symbol)
-      );
-
-      if (perpAssetIndex !== -1) {
-        const markPx = Number(perpAssets[1][perpAssetIndex].markPx);
-        const additionalMargin =
-          Math.abs(adjustment.perpAdjustment) * markPx * 0.1; // Assuming 10x leverage
-        totalRequiredPerpsUSDC += additionalMargin;
-      }
-    }
-  }
-
-  // Check and transfer USDC if needed for adjustments
-  if (totalRequiredSpotUSDC > 0 || totalRequiredPerpsUSDC > 0) {
-    try {
-      const transferResult = await checkAndTransferUSDC(
-        exchangeClient,
-        { perpsUSDC, spotUSDC },
-        {
-          requiredPerpsUSDC: totalRequiredPerpsUSDC,
-          requiredSpotUSDC: totalRequiredSpotUSDC,
-        }
-      );
-      console.log("USDC balance check for adjustments completed:", {
-        transfersExecuted: transferResult.transfersExecuted,
-        transfers: transferResult.transfers,
-        finalBalances: transferResult.finalBalances,
-      });
-    } catch (error: any) {
-      throw new Error(error.message || "Error transferring USDC");
-    }
-  }
 
   const results = [];
 
@@ -819,4 +744,4 @@ const updatePositionLeverage = async (
   };
 };
 
-export { openHedgePosition, updateHedgePosition, approveWalletAgent };
+export { openHedgePosition, updateHedgePosition, approveWalletAgent, checkAndTransferUSDC };
