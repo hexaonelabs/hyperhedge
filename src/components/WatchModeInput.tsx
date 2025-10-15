@@ -68,7 +68,7 @@ const WatchModeInput: React.FC<WatchModeInputProps> = ({ onClose }) => {
       </div>
       
       <p className="text-dark-300 text-sm">
-        Enter an Hyperliquid address to analyze a portfolio without connecting.
+        Enter an Hyperliquid address to analyze a address without connecting.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -113,7 +113,7 @@ const WatchModeInput: React.FC<WatchModeInputProps> = ({ onClose }) => {
           disabled={!inputAddress || !isValidEthereumAddress(inputAddress)}
           className="w-full btn-primary text-black disabled:opacity-50 disabled:cursor-not-allowed font-medium py-3 px-6 rounded-lg transition-colors duration-200"
         >
-          Analyze this Portfolio
+          Analyze this Address
         </button>
       </form>
 
@@ -123,7 +123,7 @@ const WatchModeInput: React.FC<WatchModeInputProps> = ({ onClose }) => {
           <div className="text-xs text-blue-200">
             <p className="font-medium mb-1">Watch Mode</p>
             <p>
-              This mode allows you to analyze any public portfolio without needing to connect.
+              This mode allows you to analyze any public address without needing to connect.
             </p>
           </div>
         </div>

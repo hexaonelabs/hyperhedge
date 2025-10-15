@@ -4,7 +4,6 @@ import {
   PieChart,
   Activity,
   DollarSign,
-  Eye,
   Share2,
 } from "lucide-react";
 import { useParams } from "react-router-dom";
@@ -229,23 +228,8 @@ const PositionsPage: React.FC = () => {
                   Connect Your Wallet
                 </h2>
                 <p className="text-dark-300 mb-6 leading-relaxed">
-                  To access your positions and funding stats, connect your
-                  wallet and unlock all features.
+                  To create and manage your delta-neutral positions, please connect your wallet.
                 </p>
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center text-dark-400 text-sm">
-                    <div className="w-2 h-2 bg-primary-400 rounded-full mr-3"></div>
-                    Real-time position tracking
-                  </div>
-                  <div className="flex items-center text-dark-400 text-sm">
-                    <div className="w-2 h-2 bg-primary-400 rounded-full mr-3"></div>
-                    Advanced risk management
-                  </div>
-                  <div className="flex items-center text-dark-400 text-sm">
-                    <div className="w-2 h-2 bg-primary-400 rounded-full mr-3"></div>
-                    Detailed analytics
-                  </div>
-                </div>
                 <div className="space-y-3">
                   <button
                     onClick={() => openConnectModal()}
@@ -267,8 +251,7 @@ const PositionsPage: React.FC = () => {
                     onClick={() => setShowWatchModeInput(true)}
                     className="w-full flex items-center justify-center space-x-2 py-3 px-6 bg-dark-800 hover:bg-dark-700 text-dark-300 hover:text-white border border-dark-700 hover:border-dark-600 rounded-lg transition-colors duration-200"
                   >
-                    <Eye size={18} />
-                    <span>Analyze a Portfolio</span>
+                    <span>Analyze Address</span>
                   </button>
                 </div>
               </div>
