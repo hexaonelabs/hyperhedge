@@ -74,8 +74,8 @@ const Hero: React.FC = () => {
           {/* Main heading */}
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 animate-fade-in">
             Earn Passive Income with
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600">
-              Funding Fee Arbitrage
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600 pb-2">
+              Delta-Neutral Hedging
             </span>
           </h1>
 
@@ -91,14 +91,23 @@ const Hero: React.FC = () => {
             <div className="bg-dark-900/50 backdrop-blur-sm border border-dark-700 rounded-lg p-4">
               <div className="text-2xl font-bold text-success-400">{stats.apy}%</div>
               <div className="text-sm text-dark-400">Best Avg. Annual Yield</div>
+              <div className="text-xs text-dark-500">
+                Based on last week funding
+              </div>
             </div>
             <div className="bg-dark-900/50 backdrop-blur-sm border border-dark-700 rounded-lg p-4">
               <div className="text-2xl font-bold text-primary-400">{stats.marketCount}</div>
               <div className="text-sm text-dark-400">Markets available</div>
+              <div className="text-xs text-dark-500">
+                Across Hyperliquid assets
+              </div>
             </div>
             <div className="bg-dark-900/50 backdrop-blur-sm border border-dark-700 rounded-lg p-4">
               <div className="text-2xl font-bold text-warning-400">{formatNumber(stats.total24hVolume)}</div>
               <div className="text-sm text-dark-400">Total 24h Volume</div>
+              <div className="text-xs text-dark-500">
+                Perp & Spot combined
+              </div>
             </div>
           </div>
 
@@ -107,7 +116,7 @@ const Hero: React.FC = () => {
             <Link 
               to="/markets"
               className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-black text-lg font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200 shadow-lg hover:shadow-xl">
-              Start Hedging
+              View Markets
               <ArrowRight size={20} className="ml-2" />
             </Link>
             <Link 
