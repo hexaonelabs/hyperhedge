@@ -116,7 +116,7 @@ const Hero: React.FC = () => {
             <Link 
               to="/markets"
               className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-black text-lg font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-all duration-200 shadow-lg hover:shadow-xl">
-              View Markets
+              Explore Markets
               <ArrowRight size={20} className="ml-2" />
             </Link>
             <Link 
