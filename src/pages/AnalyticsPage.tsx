@@ -434,7 +434,7 @@ const AnalyticsPage: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-dark-300">Data Points:</span>
                     <span className="text-dark-200">
-                      {stat.dataPoints} ({stat.dataPoints / 24} days)
+                      {stat.dataPoints} ({(stat.dataPoints / 24).toFixed(0)} days)
                     </span>
                   </div>
                 </div>
