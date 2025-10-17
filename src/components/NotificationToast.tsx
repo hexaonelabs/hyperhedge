@@ -5,6 +5,7 @@ import {
   Clock,
   X,
   CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 
 interface OrderStatus {
@@ -15,7 +16,7 @@ interface OrderStatus {
 
 interface NotificationToastProps {
   isVisible: boolean;
-  status: "loading" | "success" | "error";
+  status: "loading" | "success" | "error" | "notify";
   message?: string;
   orders?: OrderStatus[];
   onClose: () => void;
@@ -45,6 +46,14 @@ const NotificationToast: React.FC<NotificationToastProps> = ({
 
   const getStatusConfig = () => {
     switch (status) {
+      case "notify":
+        return {
+          icon: <AlertCircle size={20} />,
+          bgClass: "from-blue-600/20 to-blue-700/20 border-blue-500/30",
+          iconClass: "text-blue-400",
+          title: "Notification",
+          description: message || "",
+        };
       case "loading":
         return {
           icon: <Clock className="animate-spin" size={20} />,

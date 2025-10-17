@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import {
   X,
-  TrendingDown,
   Shield,
   Calculator,
   AlertTriangle,
@@ -10,7 +9,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { FundingRate } from "../types";
-import { openHedgePosition } from "../services/hl-exchange.service";
+import { openHedgePosition, approveWalletAgent } from "../services/hl-exchange.service";
 import { useWallet } from "../hooks/useWallet";
 import { useNotification } from "../hooks/useNotification";
 import { useHyperliquidConfig } from "../hooks/useHyperliquidConfig";
@@ -38,9 +37,11 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLiquidationAnalysisOpen, setIsLiquidationAnalysisOpen] =
     useState(false);
-  const { isConnected, signStringMessage } = useWallet();
-  const { showLoading, showSuccess, showError } = useNotification();
-  const { config } = useHyperliquidConfig();
+  const { isConnected, signStringMessage,
+      openConnectModal, walletClient,
+    } = useWallet();
+  const { showLoading, showSuccess, showError, showNotify } = useNotification();
+  const { config, saveConfig } = useHyperliquidConfig();
   const {
     allMids,
     clearinghouseState,
@@ -91,16 +92,34 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
     e.preventDefault();
 
     if (isSubmitting) return;
-    if (!config) {
-      showError("Configuration is not set");
+
+    if (!isConnected || !walletClient) {
+      openConnectModal();
       return;
     }
-    if (!config.apiWalletPrivateKey)
-      throw new Error("Missing API wallet private key");
-
-    if (!isConnected) {
-      showError("Wallet is not connected");
-      return;
+    let privateKey;
+    let encodedKey = config?.apiWalletPrivateKey;
+    if (!encodedKey) {
+      showNotify("Generating API wallet, please approve signature...");
+      setIsSubmitting(true);
+      // generate apiWalletPrivateKey
+      try {
+        const { privateKey: aprovedPrivateKey } = await approveWalletAgent(walletClient, config?.isTestnet)
+        if (!privateKey) {
+          throw new Error("Failed to obtain API wallet private key");
+        }
+        const signature = await signStringMessage("HyperHedge-Config-Encrypt");
+        encodedKey = await SecureKeyManager.encrypt(
+          aprovedPrivateKey,
+          signature
+        );
+        privateKey = aprovedPrivateKey;
+        await saveConfig({ ...config, apiWalletPrivateKey: encodedKey });
+      } catch (error) {
+        showError("Failed to generate API wallet private key: " + (error as Error).message || "Unknown error");
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -112,13 +131,16 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
         calculations,
       });
 
-      // decrypt privateKey
-      const signature = await signStringMessage("HyperHedge-Config-Encrypt");
-      const apiWalletPrivateKey = await SecureKeyManager.decrypt(
-        config.apiWalletPrivateKey,
-        signature
-      );
-      if (!apiWalletPrivateKey)
+      if (encodedKey && !privateKey) {
+        // decrypt privateKey
+        const signature = await signStringMessage("HyperHedge-Config-Encrypt");
+        privateKey = await SecureKeyManager.decrypt(
+          encodedKey,
+          signature
+        );
+      }
+
+      if (!privateKey)
         throw new Error("Failed to decrypt API wallet private key");
 
       // request api
@@ -128,10 +150,11 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
         !metaAndAssetCtxs ||
         !spotClearinghouseState ||
         !spotMetaAndAssetCtxs
-      )
+      ){
         throw new Error("No market data available");
+      }
       const result = await openHedgePosition(
-        apiWalletPrivateKey as `0x${string}`,
+        privateKey as `0x${string}`,
         {
           calculations,
           marketAsset: selectedMarket?.symbol || "",
@@ -180,7 +203,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
       if (hasAllOrders) {
         showSuccess(
           orders,
-          "Hedge position created successfully! You can now close this window."
+          "Positions created successfully! You can now close this window."
         );
         // close modal
         setTimeout(() => {
@@ -232,7 +255,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
               </div>
               <div>
                 <h2 className="text-xl font-bold text-white">
-                  Create Hedge Position
+                  Create Delta-Neutral Position
                 </h2>
                 <p className="text-dark-300">for {selectedMarket.symbol}</p>
               </div>
@@ -288,7 +311,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
             {/* Hedge Value Input */}
             <div>
               <label className="block text-sm font-medium text-dark-300 mb-2">
-                Total Hedge Amount (USD)
+                Total Amount (USD)
               </label>
               <div className="relative">
                 <DollarSign
@@ -340,7 +363,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
             <div className="bg-dark-800/50 rounded-lg p-4 space-y-6">
               <div className="flex items-center gap-2 text-primary-400 font-medium">
                 <Calculator size={16} />
-                Hedge Strategy Breakdown
+                Strategy Breakdown
               </div>
 
               {/* Strategy Explanation */}
@@ -415,7 +438,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                       (calculations.spotAmount / calculations.hedgeValue) *
                       100
                     ).toFixed(1)}
-                    % of total hedge value
+                    % of total exposure value
                   </div>
                   <div className="text-xs text-success-300 mt-1">
                     ≈{" "}
@@ -501,22 +524,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                   <div className="p-4 bg-red-500/5 border-t border-red-500/20">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                       <div className="text-center">
-                        <div className="text-red-400 text-sm">
-                          Short Margin Lost
-                        </div>
-                        <div className="text-red-300 font-semibold text-lg">
-                          -$
-                          {calculations.shortMargin.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </div>
-                        <div className="text-xs text-dark-400 mt-1">
-                          100% of margin
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-success-400 text-sm">
+                        <div className="text-white text-sm">
                           Spot Value at Liquidation
                         </div>
                         <div className="text-success-300 font-semibold text-lg">
@@ -539,10 +547,25 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-success-400 text-sm">
+                        <div className="text-red-400 text-sm">
+                          Short Margin Lost
+                        </div>
+                        <div className="text-red-300 font-semibold text-lg">
+                          -$
+                          {calculations.shortMargin.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </div>
+                        <div className="text-xs text-dark-400 mt-1">
+                          100% of margin
+                        </div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-primary-400 text-sm">
                           Spot Gain
                         </div>
-                        <div className="text-success-300 font-semibold text-lg">
+                        <div className="text-primary-400 font-semibold text-lg">
                           +$
                           {(
                             (calculations.spotAmount /
@@ -554,7 +577,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                             maximumFractionDigits: 2,
                           })}
                         </div>
-                        <div className="text-xs text-success-300 mt-1">
+                        <div className="text-xs text-dark-400 mt-1">
                           {(
                             ((calculations.liquidationPrice -
                               selectedMarket.markPrice) /
@@ -565,7 +588,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                         </div>
                       </div>
                       <div className="text-center">
-                        <div className="text-red-400 text-sm">Net Loss</div>
+                        <div className="text-white text-sm">Net Loss</div>
                         <div
                           className={`font-bold text-lg ${
                             calculations.shortMargin -
@@ -598,7 +621,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                             maximumFractionDigits: 2,
                           })}
                         </div>
-                        <div className="text-xs text-red-300 mt-1">
+                        <div className="text-xs text-dark-400 mt-1">
                           {(
                             (Math.abs(
                               calculations.shortMargin -
@@ -610,7 +633,7 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                               calculations.hedgeValue) *
                             100
                           ).toFixed(1)}
-                          % of hedge
+                          % of total exposure
                         </div>
                       </div>
                     </div>
@@ -858,8 +881,13 @@ const HedgeForm: React.FC<HedgeFormProps> = ({
                   </>
                 ) : (
                   <>
-                    <TrendingDown size={18} />
-                    Create Hedge Position
+                  {(!isConnected || !walletClient) ? (
+                  <>
+                    Connect Wallet
+                  </>
+                ): (<>
+                    Execute Orders
+                  </>)}
                   </>
                 )}
               </button>

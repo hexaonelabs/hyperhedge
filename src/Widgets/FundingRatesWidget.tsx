@@ -252,30 +252,28 @@ const FundingRatesWidget: React.FC = () => {
                           Open Interest
                         </SortButton>
                       </th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-dark-300 uppercase tracking-wider">
-                        Actions
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-dark-700">
                     {sortedAndFilteredRates.map((rate, index) => (
                       <tr
                         key={`${rate.symbol}-${index}`}
-                        className="hover:bg-dark-800/50 transition-colors"
+                        className="hover:bg-dark-800/50 transition-colors cursor-pointer"
+                        onClick={() => handleOpenHedgeForm(rate)}
                       >
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-6 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="text-sm font-medium text-white">
                               {rate.symbol}
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-6 whitespace-nowrap">
                           <div className="text-sm text-white">
                             ${rate.markPrice.toLocaleString()}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-6 whitespace-nowrap">
                           <div
                             className={`flex items-center text-sm font-medium ${
                               rate.fundingRate >= 0
@@ -291,26 +289,18 @@ const FundingRatesWidget: React.FC = () => {
                             {formatAnnualizedFundingRate(rate.fundingRate)}
                           </div>
                         </td>
-                        {/* <td className="px-6 py-4 whitespace-nowrap">
+                        {/* <td className="px-6 py-6 whitespace-nowrap">
                         <div className="text-sm text-dark-300">{rate.nextFunding}</div>
                       </td> */}
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-6 whitespace-nowrap">
                           <div className="text-sm text-white">
                             {formatNumber(rate.volume24h)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-6 whitespace-nowrap">
                           <div className="text-sm text-white">
                             {formatNumber(rate.openInterest)}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <button
-                            onClick={() => handleOpenHedgeForm(rate)}
-                            className="inline-flex items-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-black text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
-                          >
-                            Hedge
-                          </button>
                         </td>
                       </tr>
                     ))}
@@ -375,7 +365,7 @@ const FundingRatesWidget: React.FC = () => {
                       className="w-full flex items-center justify-center px-4 py-2 bg-primary-600 hover:bg-primary-700 text-black text-sm font-medium rounded-lg transition-colors"
                     >
                       <DollarSign size={16} className="mr-1" />
-                      Hedge
+                      Create Position
                     </button>
                   </div>
                 ))}

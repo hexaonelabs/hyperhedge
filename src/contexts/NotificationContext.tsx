@@ -8,7 +8,7 @@ interface OrderStatus {
 
 interface NotificationState {
   isVisible: boolean;
-  status: "loading" | "success" | "error";
+  status: "loading" | "success" | "error" | "notify";
   message?: string;
   orders?: OrderStatus[];
 }
@@ -18,6 +18,7 @@ interface NotificationContextType {
   showLoading: (message?: string) => void;
   showSuccess: (orders?: OrderStatus[], message?: string) => void;
   showError: (message: string) => void;
+  showNotify: (message: string) => void;
   hide: () => void;
 }
 
@@ -62,6 +63,14 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
     });
   };
 
+  const showNotify = (message: string) => {
+    setNotification({
+      isVisible: true,
+      status: "notify",
+      message,
+    });
+  }
+
   const hide = () => {
     setNotification((prev) => ({ ...prev, isVisible: false }));
   };
@@ -71,6 +80,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
     showLoading,
     showSuccess,
     showError,
+    showNotify,
     hide,
   };
 
