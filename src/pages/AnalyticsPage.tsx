@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useHyperliquidProcessedData } from "../hooks/useHyperliquidProcessedData";
+import BacktestingWidget from "../components/BacktestingWidget";
 
 // interface FundingData {
 //   coin: string;
@@ -85,7 +86,6 @@ const AnalyticsPage: React.FC = () => {
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [apyStats, setApyStats] = useState<APYStats[]>([]);
 
-  
   // Create a stable color mapping for each token
   const tokenColorMap = useMemo(() => {
     // Colors for different lines
@@ -385,7 +385,7 @@ const AnalyticsPage: React.FC = () => {
           <div className="flex items-center gap-2 mb-4">
             <TrendingUp className="w-5 h-5 text-primary-400" />
             <h3 className="text-lg font-semibold text-white">
-              APY Statistics (7 Days)
+              APY Statistics (21 Days)
             </h3>
           </div>
 
@@ -443,6 +443,16 @@ const AnalyticsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+
+      {/* Backtesting Widget */}
+      <div className="mb-6">
+        <BacktestingWidget 
+          fundingHistory={fundingHistory}
+          selectedTokens={selectedTokens}
+          initialAmount={10000}
+        />
+      </div>
     </div>
   );
 };

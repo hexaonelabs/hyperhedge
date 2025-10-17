@@ -307,7 +307,7 @@ export const HyperliquidDataProvider: React.FC<
           try {
             const history = await infoClient.fundingHistory({
               coin,
-              startTime: Date.now() - 7 * 24 * 60 * 60 * 1000, // 7 days
+              startTime: Date.now() - 21 * 24 * 60 * 60 * 1000, // 21 days
             });
             return { coin, history };
           } catch (err) {
