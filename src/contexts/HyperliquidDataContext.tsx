@@ -305,11 +305,51 @@ export const HyperliquidDataProvider: React.FC<
 
         const historyPromises = coins.map(async (coin) => {
           try {
-            const history = await infoClient.fundingHistory({
-              coin,
-              startTime: Date.now() - 21 * 24 * 60 * 60 * 1000, // 21 days
-            });
-            return { coin, history };
+            const allHistory: hl.FundingHistory[] = [];
+            const endTime = Date.now();
+            let startTime = endTime - (21 * 24 * 60 * 60 * 1000); // 21 days ago
+            const maxIterations = 50; // Protection against infinite loops
+            let iterations = 0;
+            
+            while (iterations < maxIterations) {
+              const batch = await infoClient.fundingHistory({
+                coin,
+                startTime,
+                endTime, 
+              });
+              
+              // console.log(`Funding history batch ${iterations + 1} for ${coin}: retrieved ${batch.length} entries`);
+              
+              if (batch.length === 0) {
+                break; // No more data to fetch
+              }
+              
+              allHistory.push(...batch);
+              
+              // If we have less than 500 entries, we probably retrieved everything
+              if (batch.length < 500) {
+                break;
+              }
+              
+              // Update startTime for next iteration
+              // Use timestamp of oldest entry in this batch as new endTime for next iteration
+              startTime = batch[batch.length - 1].time - 1;
+              iterations++;
+              
+              // Small pause to avoid overloading the API
+              await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            // Sort by timestamp (newest to oldest) and remove duplicates
+            const sortedHistory = allHistory
+              .sort((a, b) => b.time - a.time)
+              .filter((item, index, arr) => 
+                index === 0 || item.time !== arr[index - 1].time
+              );
+            
+            // console.log(`Total funding history for ${coin}: ${sortedHistory.length} entries over ${iterations} batches:`, sortedHistory);
+            
+            return { coin, history: sortedHistory };
           } catch (err) {
             console.warn(
               `Unable to retrieve history for ${coin}:`,

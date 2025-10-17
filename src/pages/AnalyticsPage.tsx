@@ -37,49 +37,6 @@ interface APYStats {
   dataPoints: number;
 }
 
-// // Cache configuration
-// const CACHE_KEY = "funding_rates_cache";
-// const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes in milliseconds
-
-// // Cache utility functions
-// const getCachedData = (): FundingData[] | null => {
-//   try {
-//     const cached = localStorage.getItem(CACHE_KEY);
-//     if (!cached) return null;
-
-//     const parsedCache: CachedFundingData = JSON.parse(cached);
-//     const now = Date.now();
-
-//     // Check if cache is still valid (within 30 minutes)
-//     if (now - parsedCache.timestamp < CACHE_DURATION) {
-//       console.log("Using cached funding rates data");
-//       return parsedCache.data;
-//     } else {
-//       // Cache expired, remove it
-//       localStorage.removeItem(CACHE_KEY);
-//       console.log("Cache expired, removed from localStorage");
-//       return null;
-//     }
-//   } catch (error) {
-//     console.error("Error reading cache:", error);
-//     localStorage.removeItem(CACHE_KEY);
-//     return null;
-//   }
-// };
-
-// const setCachedData = (data: FundingData[]): void => {
-//   try {
-//     const cacheData: CachedFundingData = {
-//       data,
-//       timestamp: Date.now(),
-//     };
-//     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
-//     console.log("Funding rates data cached successfully");
-//   } catch (error) {
-//     console.error("Error caching data:", error);
-//   }
-// };
-
 const AnalyticsPage: React.FC = () => {
   const { fundingHistory, isLoading: loading } = useHyperliquidProcessedData();
   const [selectedTokens, setSelectedTokens] = useState<string[]>([]);
