@@ -21,7 +21,10 @@ const Hero: React.FC = () => {
       };
     });
     // select 3 better tokens
-    const topTokens = tokens.sort((a, b) => b.averageAPY - a.averageAPY).slice(0, 3);
+    const sortedTokens = tokens.sort((a, b) => b.averageAPY - a.averageAPY);
+    const topTokens = sortedTokens.slice(0, 3).some(token => token.averageAPY <= 0) 
+      ? sortedTokens.slice(0, 2) 
+      : sortedTokens.slice(0, 3);
     const apy = topTokens.length > 0 
       ? (topTokens.reduce((acc, token) => acc + token.averageAPY, 0) / topTokens.length).toFixed(2) 
       : '0.00';

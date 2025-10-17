@@ -138,12 +138,11 @@ const AnalyticsPage: React.FC = () => {
       });
 
       // Sort by APY (descending) and take top 3
-      const topTokens = tokensWithAPY
-        .sort((a, b) => b.averageAPY - a.averageAPY)
-        .slice(0, 3)
-        .map((token) => token.coin);
-
-      setSelectedTokens(topTokens);
+      const sortedTokens = tokensWithAPY.sort((a, b) => b.averageAPY - a.averageAPY);
+      const topTokens = sortedTokens.slice(0, 3).some(token => token.averageAPY <= 0) 
+      ? sortedTokens.slice(0, 2) 
+      : sortedTokens.slice(0, 3);
+      setSelectedTokens(topTokens.map((token) => token.coin));
     }
   }, [fundingHistory]);
 
