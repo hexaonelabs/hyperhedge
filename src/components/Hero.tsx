@@ -75,14 +75,14 @@ const Hero: React.FC = () => {
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6 animate-fade-in">
             Earn Passive Income with
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-primary-400 to-primary-600 pb-2">
-              Delta-Neutral Hedging
+              Delta-Neutral Strategy
             </span>
           </h1>
 
           {/* Description */}
           <p className="text-xl text-dark-300 mb-8 max-w-3xl mx-auto leading-relaxed animate-fade-in">
-            Create automated hedge positions combining perpetual futures and
-            spot holdings on Hyperliquid. Capture funding rate premiums while
+            Create automated positions combining perpetual futures and
+            spot holdings on Hyperliquid. Capture funding rate while
             maintaining market-neutral exposure.
           </p>
 
